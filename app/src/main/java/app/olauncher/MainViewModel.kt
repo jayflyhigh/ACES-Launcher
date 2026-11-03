@@ -107,19 +107,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Constants.FLAG_SET_CLOCK_APP -> saveClockApp(appModel)
             Constants.FLAG_SET_CALENDAR_APP -> saveCalendarApp(appModel)
             Constants.FLAG_SET_SCREEN_TIME_APP -> saveScreenTimeApp(appModel)
-            Constants.FLAG_SET_QUICK_IMAGE_APP -> saveQuickImageApp(appModel)
-        }
-    }
-
-    private fun saveQuickImageApp(appModel: AppModel) {
-        if (appModel !is AppModel.App) {
-            appContext.showToast(appContext.getString(R.string.shortcuts_not_supported_here))
-            return
-        }
-        prefs.quickImageAppName = appModel.appLabel
-        prefs.quickImageAppPackage = appModel.appPackage
-        prefs.quickImageAppClassName = appModel.activityClassName.orEmpty()
-        prefs.quickImageAppUser = appModel.user.toString()
+            }
     }
 
     fun loadContacts() {

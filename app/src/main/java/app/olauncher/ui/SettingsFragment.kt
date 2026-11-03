@@ -25,7 +25,6 @@ import app.olauncher.MainViewModel
 import app.olauncher.R
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
-import app.olauncher.data.QuickSetting
 import app.olauncher.databinding.DialogTextSizeBinding
 import app.olauncher.databinding.FragmentSettingsBinding
 import app.olauncher.helper.appUsagePermissionGranted
@@ -99,41 +98,6 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         if (showPentastic)
             binding.footer.text = getText(R.string.new_app_minimal_todo_lists)
 
-        // Consumed once so returning from a sub-page doesn't reopen the target
-        arguments?.getString(Constants.Key.SETTING_TARGET)?.let { target ->
-            arguments?.remove(Constants.Key.SETTING_TARGET)
-            QuickSetting.from(target)?.let { binding.scrollView.post { openSettingTarget(it) } }
-        }
-    }
-
-    private fun openSettingTarget(setting: QuickSetting) {
-        val b = _binding ?: return
-        if (setting.targetId == 0) return
-        val target = b.root.findViewById<View>(setting.targetId) ?: return
-        if (!target.isShown) {
-            requireContext().showToast(getString(R.string.setting_not_available))
-            return
-        }
-        var offset = 0
-        var view: View = target
-        while (view != b.scrollLayout) {
-            offset += view.top
-            view = view.parent as? View ?: break
-        }
-        val highlightRow = target.parent as? View ?: target
-        b.scrollView.scrollTo(0, (offset - b.scrollView.height / 3).coerceAtLeast(0))
-        when (setting.action) {
-            QuickSetting.Action.CLICK -> target.post { if (_binding != null) target.performClick() }
-            QuickSetting.Action.HIGHLIGHT -> highlight(highlightRow)
-            QuickSetting.Action.SECTION -> highlight(target)
-            QuickSetting.Action.SEARCH_ENGINES -> {}
-        }
-    }
-
-    private fun highlight(view: View) {
-        view.animate().cancel()
-        view.alpha = 0.2f
-        view.animate().alpha(1f).setDuration(700).start()
     }
 
     override fun onClick(view: View) {

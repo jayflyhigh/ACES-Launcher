@@ -77,7 +77,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         setHomeAlignment(prefs.homeAlignment)
         initSwipeTouchListener()
         initClickListeners()
-        quickActions = QuickActionsMenu(this, binding.quickActions, prefs, viewModel)
+        quickActions = QuickActionsMenu(this, binding.quickActions, viewModel)
     }
 
     private fun openQuickActions() {

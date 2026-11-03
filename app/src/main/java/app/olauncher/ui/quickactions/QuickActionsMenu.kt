@@ -1,9 +1,5 @@
 package app.olauncher.ui.quickactions
 
-import android.content.ActivityNotFoundException
-import android.content.Intent
-import android.os.Build
-import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
@@ -16,19 +12,12 @@ import androidx.core.view.isVisible
 import androidx.navigation.fragment.findNavController
 import app.olauncher.MainViewModel
 import app.olauncher.R
-import app.olauncher.data.AppModel
 import app.olauncher.data.Constants
-import app.olauncher.data.Prefs
-import app.olauncher.data.QuickSetting
 import app.olauncher.data.SearchMode
 import app.olauncher.databinding.LayoutQuickActionsBinding
 import app.olauncher.helper.dpToPx
-import app.olauncher.helper.getUserHandleFromString
 import app.olauncher.helper.isEinkDisplay
-import app.olauncher.helper.isPackageInstalled
 import app.olauncher.helper.isSystemAnimationsDisabled
-import app.olauncher.helper.showPopupMenu
-import app.olauncher.helper.showToast
 import app.olauncher.ui.HomeFragment
 import kotlin.math.max
 
@@ -36,7 +25,6 @@ import kotlin.math.max
 class QuickActionsMenu(
     private val fragment: HomeFragment,
     private val binding: LayoutQuickActionsBinding,
-    private val prefs: Prefs,
     private val viewModel: MainViewModel,
 ) {
     private val context = fragment.requireContext()
@@ -45,12 +33,6 @@ class QuickActionsMenu(
     private val scrim = binding.quickScrim
     private val baseMargin = 12.dpToPx()
     private val baseTopMargin = 24.dpToPx()
-
-    private val settingSlots = listOf(
-        Triple(binding.quickSetting1, binding.quickSetting1Plus, binding.quickSetting1Symbol),
-        Triple(binding.quickSetting2, binding.quickSetting2Plus, binding.quickSetting2Symbol),
-        Triple(binding.quickSetting3, binding.quickSetting3Plus, binding.quickSetting3Symbol),
-    )
 
     private val backCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = hide()
@@ -76,7 +58,6 @@ class QuickActionsMenu(
         if (isOpen) return
         isOpen = true
         backCallback.isEnabled = true
-        refreshSettingTiles()
         ViewCompat.getRootWindowInsets(binding.root)?.let { applyInsets(it) }
         binding.quickScroll.scrollTo(0, 0)
 
@@ -147,28 +128,6 @@ class QuickActionsMenu(
     }
 
     private fun initActions() {
-        binding.quickImage.setOnClickListener {
-            hide(false)
-            openImageShortcut()
-        }
-        binding.quickImage.setOnLongClickListener {
-            showImageShortcutMenu(it)
-            true
-        }
-
-        settingSlots.forEachIndexed { index, (tile, _, _) ->
-            val slot = index + 1
-            tile.setOnClickListener {
-                val setting = QuickSetting.from(prefs.getQuickSetting(slot))
-                if (setting == null) showSettingPicker(slot, it) else openSetting(setting)
-            }
-            tile.setOnLongClickListener {
-                if (QuickSetting.from(prefs.getQuickSetting(slot)) == null) showSettingPicker(slot, it)
-                else showSettingOptions(slot, it)
-                true
-            }
-        }
-
         binding.searchApps.setOnClickListener { openSearch(SearchMode.APPS_ONLY) }
         binding.searchContacts.setOnClickListener { openSearch(SearchMode.CONTACTS_ONLY) }
         binding.searchEngines.setOnClickListener { openSearch(SearchMode.ENGINES_ONLY) }
@@ -198,129 +157,4 @@ class QuickActionsMenu(
         navigate(R.id.action_mainFragment_to_universalSearchFragment, bundleOf(Constants.Key.SEARCH_MODE to mode.name))
     }
 
-    // Image shortcut
-
-    private fun openImageShortcut() {
-        val packageName = prefs.quickImageAppPackage
-        if (packageName.isNotBlank()) {
-            if (isPackageInstalled(context, packageName, prefs.quickImageAppUser)) {
-                viewModel.selectedApp(
-                    AppModel.App(
-                        appLabel = prefs.quickImageAppName,
-                        key = null,
-                        appPackage = packageName,
-                        activityClassName = prefs.quickImageAppClassName.ifBlank { null },
-                        isNew = false,
-                        user = getUserHandleFromString(context, prefs.quickImageAppUser),
-                    ),
-                    Constants.FLAG_LAUNCH_APP
-                )
-                return
-            }
-            context.showToast(R.string.assigned_app_missing)
-            prefs.clearQuickImageApp()
-        }
-        openGallery()
-    }
-
-    private fun openGallery() {
-        val candidates = listOfNotNull(
-            Intent.makeMainSelectorActivity(Intent.ACTION_MAIN, Intent.CATEGORY_APP_GALLERY),
-            context.packageManager.getLaunchIntentForPackage(GOOGLE_PHOTOS_PACKAGE),
-        )
-        for (intent in candidates) {
-            try {
-                context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                return
-            } catch (_: ActivityNotFoundException) {
-            } catch (_: SecurityException) {
-            }
-        }
-        context.showToast(R.string.gallery_not_found)
-    }
-
-    private fun showImageShortcutMenu(anchor: View) {
-        val assigned = prefs.quickImageAppPackage.isNotBlank()
-        anchor.showPopupMenu(
-            configure = { menu ->
-                menu.add(0, MENU_CHOOSE_APP, 0, R.string.choose_app)
-                if (assigned) menu.add(0, MENU_RESTORE_GALLERY, 1, R.string.restore_gallery)
-            }
-        ) { item ->
-            when (item.itemId) {
-                MENU_CHOOSE_APP -> {
-                    hide(false)
-                    fragment.showAppList(Constants.FLAG_SET_QUICK_IMAGE_APP, includeHiddenApps = true)
-                }
-
-                MENU_RESTORE_GALLERY -> prefs.clearQuickImageApp()
-            }
-        }
-    }
-
-    // Settings shortcuts
-
-    private fun availableSettings() = QuickSetting.entries.filter {
-        it != QuickSetting.SCREEN_TIME || Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-    }
-
-    private fun showSettingPicker(slot: Int, anchor: View) {
-        val settings = availableSettings()
-        anchor.showPopupMenu(
-            configure = { menu ->
-                settings.forEachIndexed { i, setting ->
-                    menu.add(0, i, i, "${setting.symbol}   ${context.getString(setting.label)}")
-                }
-            }
-        ) { item ->
-            prefs.setQuickSetting(slot, settings[item.itemId].name)
-            refreshSettingTiles()
-        }
-    }
-
-    private fun showSettingOptions(slot: Int, anchor: View) {
-        anchor.showPopupMenu(
-            configure = { menu ->
-                menu.add(0, MENU_CHANGE_SETTING, 0, R.string.change_setting)
-                menu.add(0, MENU_CLEAR_SETTING, 1, R.string.clear_shortcut)
-            }
-        ) { item ->
-            when (item.itemId) {
-                MENU_CHANGE_SETTING -> showSettingPicker(slot, anchor)
-                MENU_CLEAR_SETTING -> {
-                    prefs.setQuickSetting(slot, null)
-                    refreshSettingTiles()
-                }
-            }
-        }
-    }
-
-    private fun openSetting(setting: QuickSetting) {
-        if (setting.action == QuickSetting.Action.SEARCH_ENGINES)
-            navigate(R.id.action_mainFragment_to_searchEnginesFragment)
-        else
-            navigate(
-                R.id.action_mainFragment_to_settingsFragment,
-                bundleOf(Constants.Key.SETTING_TARGET to setting.name)
-            )
-    }
-
-    private fun refreshSettingTiles() {
-        settingSlots.forEachIndexed { index, (tile, plus, symbol) ->
-            val setting = QuickSetting.from(prefs.getQuickSetting(index + 1))
-            plus.isVisible = setting == null
-            symbol.isVisible = setting != null
-            symbol.text = setting?.symbol
-            tile.contentDescription = setting?.let { context.getString(it.label) }
-                ?: context.getString(R.string.settings_shortcut)
-        }
-    }
-
-    private companion object {
-        const val GOOGLE_PHOTOS_PACKAGE = "com.google.android.apps.photos"
-        const val MENU_CHOOSE_APP = 1
-        const val MENU_RESTORE_GALLERY = 2
-        const val MENU_CHANGE_SETTING = 3
-        const val MENU_CLEAR_SETTING = 4
-    }
 }

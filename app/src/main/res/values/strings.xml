@@ -180,22 +180,11 @@
 
     <!-- Quick actions menu -->
     <string name="home_settings">Home Settings</string>
-    <string name="image_shortcut">Gallery shortcut</string>
-    <string name="settings_shortcut">Settings shortcut</string>
     <string name="search_apps_only">Search apps</string>
     <string name="search_contacts_only">Search contacts</string>
     <string name="search_engines_only">Search engines</string>
     <string name="search_everything">Search everything</string>
-    <string name="choose_app">Choose app</string>
-    <string name="restore_gallery">Restore Gallery</string>
-    <string name="change_setting">Change setting</string>
-    <string name="clear_shortcut">Clear shortcut</string>
-    <string name="gallery_not_found">No gallery app found</string>
-    <string name="assigned_app_missing">Assigned app not found, opening Gallery</string>
-    <string name="shortcuts_not_supported_here">Pinned shortcuts can\'t be assigned here</string>
-    <string name="all_settings">All settings</string>
     <string name="search">Search</string>
-    <string name="setting_not_available">This setting is not available on this device</string>
 
     <!-- Search -->
     <string name="apps">Apps</string>
