@@ -388,6 +388,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     override fun onDestroyView() {
         filterJob?.cancel()
         searchTextView = null
+        if (::adapter.isInitialized) adapter.close()
         super.onDestroyView()
         _binding = null
     }

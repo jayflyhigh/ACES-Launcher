@@ -1,11 +1,15 @@
 package app.olauncher.ui.search
 
+import android.content.Context
+import android.content.pm.LauncherApps
+import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import android.util.LruCache
 import app.olauncher.data.AppModel
 import app.olauncher.data.Contact
 import app.olauncher.data.SearchEngine
@@ -13,6 +17,13 @@ import app.olauncher.databinding.ItemSearchAppBinding
 import app.olauncher.databinding.ItemSearchContactBinding
 import app.olauncher.databinding.ItemSearchEngineBinding
 import app.olauncher.databinding.ItemSearchHeaderBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class SearchItem {
     data class Header(val title: String) : SearchItem()
@@ -37,6 +48,11 @@ class SearchResultsAdapter(
     private val labelGravity: Int,
     private val actions: SearchActions,
 ) : ListAdapter<SearchItem, RecyclerView.ViewHolder>(DIFF) {
+
+    private val iconScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val iconCache = LruCache<String, Drawable.ConstantState>(128)
+
+    fun close() = iconScope.cancel()
 
     override fun getItemViewType(position: Int) = when (getItem(position)) {
         is SearchItem.Header -> TYPE_HEADER
@@ -69,6 +85,7 @@ class SearchResultsAdapter(
                 }
                 gravity = labelGravity
                 alpha = 1f
+                (holder as AppHolder).loadIcon(item.app)
                 setOnClickListener { actions.onAppClick(item.app) }
                 setOnLongClickListener {
                     actions.onAppLongClick(item.app)
@@ -80,6 +97,7 @@ class SearchResultsAdapter(
                 text = item.label
                 gravity = labelGravity
                 alpha = 0.6f
+                (holder as AppHolder).clearIcon()
                 setOnClickListener { actions.onPermissionClick() }
                 setOnLongClickListener(null)
             }
@@ -107,7 +125,53 @@ class SearchResultsAdapter(
     }
 
     private class HeaderHolder(val binding: ItemSearchHeaderBinding) : RecyclerView.ViewHolder(binding.root)
-    private class AppHolder(val binding: ItemSearchAppBinding) : RecyclerView.ViewHolder(binding.root)
+    private inner class AppHolder(val binding: ItemSearchAppBinding) : RecyclerView.ViewHolder(binding.root) {
+        var iconJob: Job? = null
+
+        fun clearIcon() {
+            iconJob?.cancel()
+            iconJob = null
+            binding.itemIcon.tag = null
+            binding.itemIcon.setImageDrawable(null)
+            binding.itemIcon.isVisible = false
+        }
+
+        fun loadIcon(app: AppModel) {
+            iconJob?.cancel()
+            val key = "${app.appPackage}|${app.user}"
+            binding.itemIcon.tag = key
+            binding.itemIcon.isVisible = true
+            binding.itemIcon.setImageDrawable(null)
+            val cached = iconCache.get(key)
+            if (cached != null) {
+                binding.itemIcon.setImageDrawable(cached.newDrawable(binding.root.resources).mutate())
+                return
+            }
+
+            val context = binding.root.context.applicationContext
+            iconJob = iconScope.launch {
+                val iconState = loadIconState(context, app)
+                if (iconState != null) iconCache.put(key, iconState)
+                withContext(Dispatchers.Main) {
+                    if (bindingAdapterPosition != RecyclerView.NO_POSITION && binding.itemIcon.tag == key) {
+                        binding.itemIcon.setImageDrawable(iconState?.newDrawable(binding.root.resources)?.mutate())
+                        binding.itemIcon.isVisible = iconState != null
+                    }
+                }
+            }
+        }
+    }
+
+    private fun loadIconState(context: Context, app: AppModel): Drawable.ConstantState? = try {
+        val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+        val activities = launcherApps.getActivityList(app.appPackage, app.user)
+        val activity = activities.firstOrNull {
+            app is AppModel.App && it.componentName.className == app.activityClassName
+        } ?: activities.firstOrNull()
+        activity?.getBadgedIcon(context.resources.displayMetrics.densityDpi)?.constantState
+    } catch (_: Exception) {
+        null
+    }
     private class ContactHolder(val binding: ItemSearchContactBinding) : RecyclerView.ViewHolder(binding.root)
     private class EngineHolder(val binding: ItemSearchEngineBinding) : RecyclerView.ViewHolder(binding.root)
 
