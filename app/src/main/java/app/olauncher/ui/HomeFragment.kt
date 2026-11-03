@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
@@ -652,6 +653,14 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
     private fun getSwipeGestureListener(context: Context): View.OnTouchListener {
         return object : OnSwipeTouchListener(context) {
+            private var menuGestureHandled = false
+
+            override fun onTouch(view: View, motionEvent: MotionEvent): Boolean {
+                if (motionEvent.actionMasked == MotionEvent.ACTION_DOWN) menuGestureHandled = false
+                if (quickActions?.onHomeTouch(motionEvent) == true) menuGestureHandled = true
+                return super.onTouch(view, motionEvent) || menuGestureHandled
+            }
+
             override fun onSwipeLeft() {
                 super.onSwipeLeft()
                 openSwipeLeftApp()
@@ -664,12 +673,12 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
             override fun onSwipeUp() {
                 super.onSwipeUp()
-                openQuickActions()
+                if (!menuGestureHandled) openQuickActions()
             }
 
             override fun onSwipeDown() {
                 super.onSwipeDown()
-                expandNotificationDrawer(requireContext())
+                if (!menuGestureHandled) expandNotificationDrawer(requireContext())
             }
 
             override fun onLongClick() {
@@ -700,6 +709,14 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
     private fun getViewSwipeTouchListener(context: Context, view: View): View.OnTouchListener {
         return object : ViewSwipeTouchListener(context, view) {
+            private var menuGestureHandled = false
+
+            override fun onTouch(view: View, motionEvent: MotionEvent): Boolean {
+                if (motionEvent.actionMasked == MotionEvent.ACTION_DOWN) menuGestureHandled = false
+                if (quickActions?.onHomeTouch(motionEvent) == true) menuGestureHandled = true
+                return super.onTouch(view, motionEvent) || menuGestureHandled
+            }
+
             override fun onSwipeLeft() {
                 super.onSwipeLeft()
                 openSwipeLeftApp()
@@ -712,12 +729,12 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
             override fun onSwipeUp() {
                 super.onSwipeUp()
-                openQuickActions()
+                if (!menuGestureHandled) openQuickActions()
             }
 
             override fun onSwipeDown() {
                 super.onSwipeDown()
-                expandNotificationDrawer(requireContext())
+                if (!menuGestureHandled) expandNotificationDrawer(requireContext())
             }
 
             override fun onLongClick(view: View) {

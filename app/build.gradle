@@ -52,6 +52,7 @@ dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
     implementation libs.kotlin.stdlib
     implementation libs.core.ktx
+    implementation libs.dynamicanimation
     implementation libs.appcompat
     implementation libs.recyclerview
 
