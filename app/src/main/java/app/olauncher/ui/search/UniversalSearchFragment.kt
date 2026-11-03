@@ -110,6 +110,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             gravity = prefs.appLabelAlignment
             background = null
             backgroundTintList = null
+            isCursorVisible = true
         }
         binding.search.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
@@ -377,7 +378,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
 
     override fun onStart() {
         super.onStart()
-        binding.search.showKeyboard()
+        searchTextView?.showKeyboard() ?: binding.search.showKeyboard()
     }
 
     override fun onStop() {
