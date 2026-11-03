@@ -8,9 +8,11 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
+import android.text.Spannable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -63,6 +65,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private var engines: List<SearchEngine> = emptyList()
     private var filterJob: Job? = null
     private var permissionRequested = false
+    private var searchTextView: TextView? = null
+    private var autoLaunchedQuery: String? = null
 
     private val contactsPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.loadContacts()
@@ -96,7 +100,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             SearchMode.ENGINES_ONLY -> getString(R.string.search_engines)
             SearchMode.ALL_SEARCH -> " ___"
         }
-        binding.search.findViewById<TextView>(R.id.search_src_text)?.apply {
+        searchTextView = binding.search.findViewById(R.id.search_src_text)
+        searchTextView?.apply {
             gravity = prefs.appLabelAlignment
             background = null
             backgroundTintList = null
@@ -190,8 +195,24 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             val items = withContext(Dispatchers.Default) {
                 buildItems(query, appsSnapshot, contactsSnapshot, enginesSnapshot, contactsGranted, titles)
             }
-            adapter.submitList(items)
+            adapter.submitList(items) {
+                if (mode != SearchMode.APPS_ONLY || query.isBlank() || query.startsWith(" ") ||
+                    query != currentQuery() || isSearchComposing() || query == autoLaunchedQuery
+                ) return@submitList
+
+                val soleResult = items.filterIsInstance<SearchItem.App>().singleOrNull() ?: return@submitList
+                autoLaunchedQuery = query
+                onAppClick(soleResult.app)
+            }
         }
+    }
+
+    private fun isSearchComposing(): Boolean {
+        val text = searchTextView?.text
+        if (text !is Spannable) return false
+        val start = BaseInputConnection.getComposingSpanStart(text)
+        val end = BaseInputConnection.getComposingSpanEnd(text)
+        return start >= 0 && end > start
     }
 
     private class Titles(val apps: String, val contacts: String, val search: String, val permission: String)
@@ -361,6 +382,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
 
     override fun onDestroyView() {
         filterJob?.cancel()
+        searchTextView = null
         super.onDestroyView()
         _binding = null
     }
