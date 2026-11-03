@@ -97,7 +97,11 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             SearchMode.ENGINES_ONLY -> getString(R.string.search_engines)
             SearchMode.ALL_SEARCH -> " ___"
         }
-        binding.search.findViewById<TextView>(R.id.search_src_text)?.gravity = prefs.appLabelAlignment
+        binding.search.findViewById<TextView>(R.id.search_src_text)?.apply {
+            gravity = prefs.appLabelAlignment
+            background = null
+            backgroundTintList = null
+        }
         binding.search.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 submit(query.orEmpty())

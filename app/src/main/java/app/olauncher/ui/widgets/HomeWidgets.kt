@@ -3,6 +3,8 @@ package app.olauncher.ui.widgets
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
+import android.app.Activity
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.util.SizeF
@@ -18,6 +20,7 @@ import app.olauncher.data.Prefs
 import app.olauncher.data.WidgetStore
 import app.olauncher.helper.createDialog
 import app.olauncher.helper.dpToPx
+import app.olauncher.helper.showToast
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -189,11 +192,43 @@ class HomeWidgets(
         ).showRespectingStatusBar()
     }
 
+    override fun onSettingsRequested(frame: WidgetFrame) {
+        val info = manager.getAppWidgetInfo(frame.widgetId)
+        val configure = info?.configure
+        if (configure == null) {
+            context.showToast(R.string.widget_settings_unavailable)
+            return
+        }
+        val activity = fragment.activity as? Activity ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                host.startAppWidgetConfigureActivityForResult(
+                    activity, frame.widgetId, 0, WIDGET_SETTINGS_REQUEST, null
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                activity.startActivityForResult(
+                    Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+                        .setComponent(configure)
+                        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, frame.widgetId),
+                    WIDGET_SETTINGS_REQUEST
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            context.showToast(R.string.widget_settings_unavailable)
+        }
+    }
+
     private fun removeWidget(frame: WidgetFrame) {
         frame.setEditing(false)
         frames.remove(frame.widgetId)
         container.removeView(frame)
         host.deleteAppWidgetId(frame.widgetId)
         WidgetStore.remove(prefs, frame.widgetId)
+    }
+
+    private companion object {
+        const val WIDGET_SETTINGS_REQUEST = 701
     }
 }

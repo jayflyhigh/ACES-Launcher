@@ -239,4 +239,6 @@
     <string name="done">Done</string>
     <string name="resize">Resize</string>
     <string name="widget_size_format">%1$d × %2$d</string>
+    <string name="widget_settings">Widget settings</string>
+    <string name="widget_settings_unavailable">This widget has no separate settings screen</string>
 </resources>

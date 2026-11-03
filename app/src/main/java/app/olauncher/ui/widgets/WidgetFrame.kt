@@ -33,6 +33,7 @@ class WidgetFrame(
         fun onEditModeChanged(frame: WidgetFrame, editing: Boolean)
         fun onBoundsChanged(frame: WidgetFrame)
         fun onRemoveRequested(frame: WidgetFrame)
+        fun onSettingsRequested(frame: WidgetFrame)
     }
 
     var minWidthPx = 48.dpToPx()
@@ -46,8 +47,9 @@ class WidgetFrame(
     private val editOverlay = FrameLayout(context)
     private val removeButton = controlButton("✕", R.string.remove_widget, Gravity.TOP or Gravity.END)
     private val doneButton = controlButton("✓", R.string.done, Gravity.TOP or Gravity.START)
+    private val settingsButton = controlButton("⚙", R.string.widget_settings, Gravity.TOP or Gravity.CENTER_HORIZONTAL)
     private val resizeHandle = controlButton("⤡", R.string.resize, Gravity.BOTTOM or Gravity.END)
-    private val controls = listOf(removeButton, doneButton, resizeHandle)
+    private val controls = listOf(removeButton, doneButton, settingsButton, resizeHandle)
 
     private var downRawX = 0f
     private var downRawY = 0f
@@ -74,6 +76,7 @@ class WidgetFrame(
 
         doneButton.setOnClickListener { setEditing(false) }
         removeButton.setOnClickListener { callbacks.onRemoveRequested(this) }
+        settingsButton.setOnClickListener { callbacks.onSettingsRequested(this) }
         resizeHandle.setOnTouchListener { _, ev -> handleResize(ev) }
     }
 
