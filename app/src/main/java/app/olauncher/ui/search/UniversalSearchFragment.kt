@@ -17,7 +17,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.SearchView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -126,11 +125,17 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             }
         })
 
-        val basePadding = binding.recyclerView.paddingBottom
+        val baseBottomMargin = (binding.recyclerView.layoutParams as ViewGroup.MarginLayoutParams).bottomMargin
         ViewCompat.setOnApplyWindowInsetsListener(binding.recyclerView) { v, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            v.updatePadding(bottom = basePadding + max(ime, nav))
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).bottom
+            val bottomMargin = baseBottomMargin + max(max(ime, nav), cutout)
+            val params = v.layoutParams as ViewGroup.MarginLayoutParams
+            if (params.bottomMargin != bottomMargin) {
+                params.bottomMargin = bottomMargin
+                v.layoutParams = params
+            }
             insets
         }
     }
