@@ -94,12 +94,17 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     private fun initSearchView() {
-        binding.search.queryHint = when (mode) {
-            SearchMode.APPS_ONLY -> getString(R.string.apps)
-            SearchMode.CONTACTS_ONLY -> getString(R.string.contacts)
-            SearchMode.ENGINES_ONLY -> getString(R.string.search_engines)
-            SearchMode.ALL_SEARCH -> " ___"
+        binding.modeTitle.apply {
+            text = when (mode) {
+                SearchMode.APPS_ONLY -> getString(R.string.apps)
+                SearchMode.CONTACTS_ONLY -> getString(R.string.contacts)
+                SearchMode.ENGINES_ONLY -> getString(R.string.search_engines)
+                SearchMode.ALL_SEARCH -> ""
+            }
+            gravity = prefs.appLabelAlignment
+            visibility = if (mode == SearchMode.ALL_SEARCH) View.GONE else View.VISIBLE
         }
+        binding.search.queryHint = if (mode == SearchMode.ALL_SEARCH) " ___" else ""
         searchTextView = binding.search.findViewById(R.id.search_src_text)
         searchTextView?.apply {
             gravity = prefs.appLabelAlignment

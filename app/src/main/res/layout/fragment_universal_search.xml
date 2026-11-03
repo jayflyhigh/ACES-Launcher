@@ -30,6 +30,16 @@
         app:searchIcon="@null"
         app:theme="@style/AppSearchText" />
 
+    <TextView
+        android:id="@+id/modeTitle"
+        style="@style/TextMedium"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:includeFontPadding="false"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="4dp"
+        android:visibility="gone" />
+
     <Space
         android:layout_width="match_parent"
         android:layout_height="0dp"
