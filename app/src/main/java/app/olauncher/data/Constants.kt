@@ -83,7 +83,6 @@ object Constants {
 
     const val REQUEST_CODE_ENABLE_ADMIN = 666
     const val REQUEST_CODE_LAUNCHER_SELECTOR = 678
-    const val REQUEST_CODE_CONFIGURE_WIDGET = 700
 
     const val APPWIDGET_HOST_ID = 1024
 

@@ -181,12 +181,6 @@
 
     </LinearLayout>
 
-    <!-- Home screen widgets; empty areas pass touches through to mainLayout -->
-    <FrameLayout
-        android:id="@+id/widgetContainer"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
     <TextView
         android:id="@+id/firstRunTips"
         style="@style/TextSmall"

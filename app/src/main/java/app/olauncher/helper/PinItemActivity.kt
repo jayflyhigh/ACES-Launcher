@@ -1,15 +1,9 @@
 package app.olauncher.helper
 
-import android.appwidget.AppWidgetHost
-import android.appwidget.AppWidgetManager
 import android.content.pm.LauncherApps
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.os.bundleOf
 import app.olauncher.R
-import app.olauncher.data.Constants
-import app.olauncher.data.Prefs
-import app.olauncher.data.WidgetStore
 
 class PinItemActivity : AppCompatActivity() {
 
@@ -34,23 +28,7 @@ class PinItemActivity : AppCompatActivity() {
             LauncherApps.PinItemRequest.REQUEST_TYPE_SHORTCUT ->
                 handleShortcutRequest(pinItemRequest)
 
-            LauncherApps.PinItemRequest.REQUEST_TYPE_APPWIDGET ->
-                handleWidgetRequest(pinItemRequest)
-
             else -> showToast(R.string.pin_action_not_supported)
-        }
-    }
-
-    private fun handleWidgetRequest(pinItemRequest: LauncherApps.PinItemRequest) {
-        val host = AppWidgetHost(applicationContext, Constants.APPWIDGET_HOST_ID)
-        val widgetId = host.allocateAppWidgetId()
-        val accepted = runCatching {
-            pinItemRequest.accept(bundleOf(AppWidgetManager.EXTRA_APPWIDGET_ID to widgetId))
-        }.getOrDefault(false)
-        if (accepted) WidgetStore.add(Prefs(this), widgetId)
-        else {
-            host.deleteAppWidgetId(widgetId)
-            showToast(R.string.widget_add_failed)
         }
     }
 

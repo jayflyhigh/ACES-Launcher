@@ -180,7 +180,6 @@
 
     <!-- Quick actions menu -->
     <string name="home_settings">Home Settings</string>
-    <string name="add_widget">Add widget</string>
     <string name="image_shortcut">Gallery shortcut</string>
     <string name="settings_shortcut">Settings shortcut</string>
     <string name="search_apps_only">Search apps</string>
@@ -232,13 +231,5 @@
 
     <!-- Widgets -->
     <string name="widgets">Widgets</string>
-    <string name="no_widgets_available">No widgets available</string>
-    <string name="widget_add_failed">Could not add widget</string>
-    <string name="remove_widget">Remove widget</string>
-    <string name="remove_widget_message">The widget will be removed from the home screen. The app stays installed.</string>
     <string name="done">Done</string>
-    <string name="resize">Resize</string>
-    <string name="widget_size_format">%1$d × %2$d</string>
-    <string name="widget_settings">Widget settings</string>
-    <string name="widget_settings_unavailable">This widget has no separate settings screen</string>
 </resources>

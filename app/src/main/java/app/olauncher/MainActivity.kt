@@ -2,9 +2,6 @@ package app.olauncher
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.appwidget.AppWidgetHost
-import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProviderInfo
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -16,10 +13,8 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Log
 import android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 import androidx.activity.OnBackPressedCallback
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.ViewModelProvider
@@ -28,7 +23,6 @@ import androidx.navigation.NavController
 import androidx.navigation.findNavController
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
-import app.olauncher.data.WidgetStore
 import app.olauncher.databinding.ActivityMainBinding
 import app.olauncher.helper.getColorFromAttr
 import app.olauncher.helper.hasBeenDays
@@ -54,6 +48,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import org.json.JSONArray
 
 class MainActivity : AppCompatActivity() {
 
@@ -66,15 +61,6 @@ class MainActivity : AppCompatActivity() {
     private var profileReceiver: BroadcastReceiver? = null
     private var launcherAppsCallback: LauncherApps.Callback? = null
     private var messageDialog: OlDialog? = null
-    private var pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-
-    val appWidgetHost: AppWidgetHost by lazy { AppWidgetHost(applicationContext, Constants.APPWIDGET_HOST_ID) }
-    val appWidgetManager: AppWidgetManager by lazy { AppWidgetManager.getInstance(applicationContext) }
-
-    private val bindWidgetLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        if (result.resultCode == Activity.RESULT_OK) configureOrCommitWidget(pendingWidgetId)
-        else cancelPendingWidget()
-    }
 
 //    override fun onBackPressed() {
 //        if (navController.currentDestination?.id != R.id.mainFragment)
@@ -93,8 +79,7 @@ class MainActivity : AppCompatActivity() {
         if (isEinkDisplay()) prefs.appTheme = AppCompatDelegate.MODE_NIGHT_NO
         AppCompatDelegate.setDefaultNightMode(prefs.appTheme)
         super.onCreate(savedInstanceState)
-        pendingWidgetId = savedInstanceState?.getInt(KEY_PENDING_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
-            ?: AppWidgetManager.INVALID_APPWIDGET_ID
+        releasePreviouslySavedWidgets()
         if (prefs.boldFont) theme.applyStyle(R.style.BoldFontOverlay, true)
         if (isEinkDisplay() || isSystemAnimationsDisabled()) theme.applyStyle(R.style.NoAnimationOverlay, true)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -144,92 +129,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        try {
-            appWidgetHost.startListening()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
         restartLauncherOrCheckTheme()
     }
 
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putInt(KEY_PENDING_WIDGET_ID, pendingWidgetId)
-    }
-
-    fun addWidget(info: AppWidgetProviderInfo) {
-        cancelPendingWidget()
-        val widgetId = appWidgetHost.allocateAppWidgetId()
-        pendingWidgetId = widgetId
-        val bound = try {
-            appWidgetManager.bindAppWidgetIdIfAllowed(widgetId, info.profile, info.provider, null)
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
+    private fun releasePreviouslySavedWidgets() {
+        val savedWidgets = runCatching { JSONArray(prefs.homeWidgetsJson) }.getOrNull() ?: return
+        val host = android.appwidget.AppWidgetHost(applicationContext, Constants.APPWIDGET_HOST_ID)
+        for (index in 0 until savedWidgets.length()) {
+            val widgetId = savedWidgets.optJSONObject(index)?.optInt("id", -1) ?: -1
+            if (widgetId >= 0) runCatching { host.deleteAppWidgetId(widgetId) }
         }
-        if (bound) {
-            configureOrCommitWidget(widgetId)
-            return
-        }
-        val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
-            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, info.provider)
-            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER_PROFILE, info.profile)
-        try {
-            bindWidgetLauncher.launch(intent)
-        } catch (e: Exception) {
-            Log.e(TAG, "Could not request bind permission for ${info.provider}", e)
-            cancelPendingWidget()
-            showToast(getString(R.string.widget_add_failed))
-        }
-    }
-
-    private fun configureOrCommitWidget(widgetId: Int) {
-        val info = appWidgetManager.getAppWidgetInfo(widgetId)
-        if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID || info == null) {
-            Log.w(TAG, "Widget $widgetId has no provider info after binding")
-            cancelPendingWidget()
-            showToast(getString(R.string.widget_add_failed))
-            return
-        }
-        if (info.configure == null || isConfigurationOptional(info)) {
-            commitWidget(widgetId)
-            return
-        }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
-                appWidgetHost.startAppWidgetConfigureActivityForResult(
-                    this, widgetId, 0, Constants.REQUEST_CODE_CONFIGURE_WIDGET, null
-                )
-            else
-                @Suppress("DEPRECATION")
-                startActivityForResult(
-                    Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
-                        .setComponent(info.configure)
-                        .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId),
-                    Constants.REQUEST_CODE_CONFIGURE_WIDGET
-                )
-        } catch (e: Exception) {
-            Log.e(TAG, "Could not start configuration for ${info.provider}", e)
-            cancelPendingWidget()
-            showToast(getString(R.string.widget_add_failed))
-        }
-    }
-
-    private fun isConfigurationOptional(info: AppWidgetProviderInfo): Boolean =
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                info.widgetFeatures and AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL != 0
-
-    private fun commitWidget(widgetId: Int) {
-        WidgetStore.add(prefs, widgetId)
-        pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
-        viewModel.widgetsChanged.value = Unit
-    }
-
-    private fun cancelPendingWidget() {
-        if (pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID)
-            appWidgetHost.deleteAppWidgetId(pendingWidgetId)
-        pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        prefs.homeWidgetsJson = "[]"
     }
 
     override fun onResume() {
@@ -271,11 +181,6 @@ class MainActivity : AppCompatActivity() {
     override fun onStop() {
         isResumed = false
         backToHomeScreen()
-        try {
-            appWidgetHost.stopListening()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
         super.onStop()
     }
 
@@ -521,17 +426,6 @@ class MainActivity : AppCompatActivity() {
                     resetLauncherViaFakeActivity()
             }
 
-            Constants.REQUEST_CODE_CONFIGURE_WIDGET -> {
-                if (resultCode == Activity.RESULT_OK && pendingWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID)
-                    commitWidget(pendingWidgetId)
-                else
-                    cancelPendingWidget()
-            }
         }
-    }
-
-    private companion object {
-        const val TAG = "MainActivity"
-        const val KEY_PENDING_WIDGET_ID = "pending_widget_id"
     }
 }

@@ -147,8 +147,6 @@ class QuickActionsMenu(
     }
 
     private fun initActions() {
-        binding.quickWidgets.setOnClickListener { navigate(R.id.action_mainFragment_to_widgetPickerFragment) }
-
         binding.quickImage.setOnClickListener {
             hide(false)
             openImageShortcut()

@@ -64,7 +64,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val contacts = MutableLiveData<List<Contact>>()
     private var contactsJob: Job? = null
-    val widgetsChanged = MutableLiveData<Unit>()
 
     // Suppress backToHomeScreen during Private Space lock/unlock auth
     var isPrivateSpaceToggling = false

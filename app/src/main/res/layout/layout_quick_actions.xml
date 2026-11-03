@@ -46,29 +46,11 @@
                 android:orientation="vertical"
                 android:padding="11dp">
 
-                <!-- Row 1: widget picker, image shortcut, three settings shortcuts -->
+                <!-- Row 1: image shortcut and three settings shortcuts -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal">
-
-                    <app.olauncher.ui.quickactions.SquareFrameLayout
-                        android:id="@+id/quickWidgets"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_margin="5dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_quick_button"
-                        android:contentDescription="@string/add_widget"
-                        android:focusable="true">
-
-                        <ImageView
-                            android:layout_width="26dp"
-                            android:layout_height="26dp"
-                            android:layout_gravity="center"
-                            android:importantForAccessibility="no"
-                            android:src="@drawable/ic_add" />
-                    </app.olauncher.ui.quickactions.SquareFrameLayout>
 
                     <app.olauncher.ui.quickactions.SquareFrameLayout
                         android:id="@+id/quickImage"
