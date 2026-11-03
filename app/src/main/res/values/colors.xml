@@ -28,4 +28,6 @@
     <color name="blackInverseTrans80">#CCFFFFFF</color>
     <color name="blackInverseTrans90">#E6FFFFFF</color>
 
+    <color name="quick_scrim">#99000000</color>
+
 </resources>

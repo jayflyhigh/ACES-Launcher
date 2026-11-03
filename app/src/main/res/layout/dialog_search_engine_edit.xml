@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="16dp"
+    android:layout_marginEnd="8dp"
+    android:orientation="vertical">
+
+    <EditText
+        android:id="@+id/editName"
+        style="@style/EngineEditField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/engine_name"
+        android:importantForAutofill="no"
+        android:inputType="textCapWords"
+        android:maxLength="40" />
+
+    <EditText
+        android:id="@+id/editUrl"
+        style="@style/EngineEditField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="@string/engine_url"
+        android:importantForAutofill="no"
+        android:inputType="textUri"
+        android:maxLength="500" />
+
+    <EditText
+        android:id="@+id/editAlias"
+        style="@style/EngineEditField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:digits="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        android:hint="@string/engine_alias"
+        android:importantForAutofill="no"
+        android:inputType="textNoSuggestions|textVisiblePassword"
+        android:maxLength="12" />
+
+    <TextView
+        android:id="@+id/editError"
+        style="@style/TextSmall"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="?attr/primaryColor"
+        android:textStyle="bold"
+        android:visibility="gone" />
+</LinearLayout>

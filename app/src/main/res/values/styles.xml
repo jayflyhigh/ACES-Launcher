@@ -104,6 +104,37 @@
         <item name="android:textColor">@drawable/text_colors_light</item>
     </style>
 
+    <!-- Quick actions menu tiles: no text shadow on the opaque panel -->
+    <style name="QuickTileText" parent="TextLarge">
+        <item name="android:textColor">?attr/primaryColor</item>
+        <item name="android:shadowRadius">0</item>
+        <item name="android:gravity">center</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="QuickBarText" parent="TextSmallBold">
+        <item name="android:textColor">?attr/primaryColor</item>
+        <item name="android:shadowRadius">0</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <style name="SearchHeaderText" parent="TextSmallBold">
+        <item name="android:textColor">?attr/primaryColor</item>
+        <item name="android:alpha">0.6</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.08</item>
+    </style>
+
+    <style name="EngineEditField">
+        <item name="android:textSize">16sp</item>
+        <item name="android:textColor">?attr/primaryColor</item>
+        <item name="android:textColorHint">?attr/primaryColorTrans50</item>
+        <item name="android:backgroundTint">?attr/primaryColorTrans50</item>
+        <item name="android:fontFamily">?attr/mainFontFamily</item>
+        <item name="android:maxLines">1</item>
+    </style>
+
     <!-- Popup menu anchored to a settings row -->
     <style name="OlPopupMenu" parent="Widget.AppCompat.PopupMenu">
         <item name="android:popupBackground">@drawable/rounded_primary_gradient</item>

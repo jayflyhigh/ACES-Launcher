@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/engineRow"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:minHeight="56dp"
+    android:orientation="horizontal">
+
+    <ImageView
+        android:id="@+id/dragHandle"
+        android:layout_width="40dp"
+        android:layout_height="48dp"
+        android:alpha="0.7"
+        android:contentDescription="@string/search_engines_hint"
+        android:paddingHorizontal="8dp"
+        android:src="@drawable/ic_drag_handle" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingVertical="8dp">
+
+        <TextView
+            android:id="@+id/engineName"
+            style="@style/TextSmall"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="?attr/primaryColor"
+            android:textSize="16sp"
+            tools:text="Google" />
+
+        <TextView
+            android:id="@+id/engineUrl"
+            style="@style/TextSmall"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.6"
+            android:ellipsize="middle"
+            android:maxLines="1"
+            android:textSize="12sp"
+            tools:text="https://www.google.com/search?q=%s" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/engineAlias"
+        style="@style/TextSmallBold"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="8dp"
+        android:maxLines="1"
+        tools:text="g" />
+
+    <ImageView
+        android:id="@+id/engineDelete"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/delete_engine"
+        android:padding="9dp"
+        android:src="@drawable/ic_delete" />
+</LinearLayout>

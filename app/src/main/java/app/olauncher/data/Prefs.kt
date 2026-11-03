@@ -118,6 +118,14 @@ class Prefs(context: Context) {
     private val SHORTCUT_ID_SWIPE_RIGHT = "SHORTCUT_ID_SWIPE_RIGHT"
     private val IS_SHORTCUT_SWIPE_RIGHT = "IS_SHORTCUT_SWIPE_RIGHT"
 
+    private val QUICK_IMAGE_APP_NAME = "QUICK_IMAGE_APP_NAME"
+    private val QUICK_IMAGE_APP_PACKAGE = "QUICK_IMAGE_APP_PACKAGE"
+    private val QUICK_IMAGE_APP_CLASS_NAME = "QUICK_IMAGE_APP_CLASS_NAME"
+    private val QUICK_IMAGE_APP_USER = "QUICK_IMAGE_APP_USER"
+    private val QUICK_SETTING_PREFIX = "QUICK_SETTING_"
+    private val SEARCH_ENGINES = "SEARCH_ENGINES"
+    private val HOME_WIDGETS = "HOME_WIDGETS"
+
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_FILENAME, 0)
 
     var firstOpen: Boolean
@@ -642,6 +650,45 @@ class Prefs(context: Context) {
     }
 
     fun getAppRenameLabel(appPackage: String): String = prefs.getString(appPackage, "").toString()
+
+    var quickImageAppName: String
+        get() = prefs.getString(QUICK_IMAGE_APP_NAME, "").toString()
+        set(value) = prefs.edit { putString(QUICK_IMAGE_APP_NAME, value) }
+
+    var quickImageAppPackage: String
+        get() = prefs.getString(QUICK_IMAGE_APP_PACKAGE, "").toString()
+        set(value) = prefs.edit { putString(QUICK_IMAGE_APP_PACKAGE, value) }
+
+    var quickImageAppClassName: String
+        get() = prefs.getString(QUICK_IMAGE_APP_CLASS_NAME, "").toString()
+        set(value) = prefs.edit { putString(QUICK_IMAGE_APP_CLASS_NAME, value) }
+
+    var quickImageAppUser: String
+        get() = prefs.getString(QUICK_IMAGE_APP_USER, "").toString()
+        set(value) = prefs.edit { putString(QUICK_IMAGE_APP_USER, value) }
+
+    fun clearQuickImageApp() = prefs.edit {
+        remove(QUICK_IMAGE_APP_NAME)
+        remove(QUICK_IMAGE_APP_PACKAGE)
+        remove(QUICK_IMAGE_APP_CLASS_NAME)
+        remove(QUICK_IMAGE_APP_USER)
+    }
+
+    fun getQuickSetting(slot: Int): String = prefs.getString(QUICK_SETTING_PREFIX + slot, "").toString()
+
+    fun setQuickSetting(slot: Int, value: String?) = prefs.edit {
+        if (value.isNullOrEmpty()) remove(QUICK_SETTING_PREFIX + slot)
+        else putString(QUICK_SETTING_PREFIX + slot, value)
+    }
+
+    // Null until the user's engine list is first saved, so defaults can be seeded once
+    var searchEnginesJson: String?
+        get() = prefs.getString(SEARCH_ENGINES, null)
+        set(value) = prefs.edit { putString(SEARCH_ENGINES, value) }
+
+    var homeWidgetsJson: String
+        get() = prefs.getString(HOME_WIDGETS, "[]").toString()
+        set(value) = prefs.edit { putString(HOME_WIDGETS, value) }
 
     fun setAppRenameLabel(appPackage: String, renameLabel: String) = prefs.edit { putString(appPackage, renameLabel) }
 }

@@ -49,7 +49,7 @@
     <string name="follow">Follow</string>
     <string name="email">Email</string>
     <string name="donate">Donate</string>
-    <string name="swipe_up_for_apps">1. Swipe up for all apps\n2. Long press anywhere for settings</string>
+    <string name="swipe_up_for_apps">1. Swipe up for quick actions\n2. Long press anywhere for settings</string>
     <string name="apps_on_home_screen">Apps on home screen</string>
     <string name="daily_wallpaper_update">Daily new wallpaper</string>
     <string name="left">Left</string>
@@ -177,4 +177,66 @@
     <string name="invalid_shortcut">Invalid shortcut</string>
     <string name="shortcut_not_found">Shortcut not found</string>
     <string name="unable_to_open_shortcut">Unable to open shortcut</string>
+
+    <!-- Quick actions menu -->
+    <string name="home_settings">Home Settings</string>
+    <string name="add_widget">Add widget</string>
+    <string name="image_shortcut">Gallery shortcut</string>
+    <string name="settings_shortcut">Settings shortcut</string>
+    <string name="search_apps_only">Search apps</string>
+    <string name="search_contacts_only">Search contacts</string>
+    <string name="search_engines_only">Search engines</string>
+    <string name="search_everything">Search everything</string>
+    <string name="choose_app">Choose app</string>
+    <string name="restore_gallery">Restore Gallery</string>
+    <string name="change_setting">Change setting</string>
+    <string name="clear_shortcut">Clear shortcut</string>
+    <string name="gallery_not_found">No gallery app found</string>
+    <string name="assigned_app_missing">Assigned app not found, opening Gallery</string>
+    <string name="shortcuts_not_supported_here">Pinned shortcuts can\'t be assigned here</string>
+    <string name="all_settings">All settings</string>
+    <string name="search">Search</string>
+    <string name="setting_not_available">This setting is not available on this device</string>
+
+    <!-- Search -->
+    <string name="apps">Apps</string>
+    <string name="contacts">Contacts</string>
+    <string name="allow_contacts_access">Allow contacts access</string>
+    <string name="contacts_permission_denied">Contacts permission denied</string>
+    <string name="call">Call</string>
+    <string name="text_message">Text</string>
+    <string name="whatsapp">WhatsApp</string>
+    <string name="whatsapp_not_installed">WhatsApp is not installed</string>
+    <string name="no_phone_number">No phone number</string>
+    <string name="type_search_query">Type something to search</string>
+    <string name="search_destination_unavailable">No app can open this search</string>
+    <string name="unable_to_open_contact">Unable to open contact</string>
+
+    <!-- Search engine settings -->
+    <string name="search_engines">Search engines</string>
+    <string name="search_engines_hint">Tap to edit, drag the handle to reorder</string>
+    <string name="add">Add</string>
+    <string name="save">Save</string>
+    <string name="add_search_engine">Add search engine</string>
+    <string name="edit_search_engine">Edit search engine</string>
+    <string name="delete_search_engine">Delete search engine</string>
+    <string name="delete_search_engine_message">This search engine will be removed from all search modes.</string>
+    <string name="delete_engine">Delete</string>
+    <string name="engine_name">Name</string>
+    <string name="engine_url" formatted="false">Search URL or deep link (%s = query)</string>
+    <string name="engine_alias">Alias (letters and numbers)</string>
+    <string name="error_name_required">Enter a name</string>
+    <string name="error_url_invalid">Enter a valid URL or deep link</string>
+    <string name="error_alias_invalid">Alias must be 1–12 letters or numbers</string>
+    <string name="error_alias_duplicate">This alias is already used</string>
+
+    <!-- Widgets -->
+    <string name="widgets">Widgets</string>
+    <string name="no_widgets_available">No widgets available</string>
+    <string name="widget_add_failed">Could not add widget</string>
+    <string name="remove_widget">Remove widget</string>
+    <string name="remove_widget_message">The widget will be removed from the home screen. The app stays installed.</string>
+    <string name="done">Done</string>
+    <string name="resize">Resize</string>
+    <string name="widget_size_format">%1$d × %2$d</string>
 </resources>

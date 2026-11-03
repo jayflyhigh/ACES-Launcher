@@ -19,6 +19,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import app.olauncher.data.AppModel
 import app.olauncher.data.Constants
+import app.olauncher.data.Contact
+import app.olauncher.data.ContactsLoader
 import app.olauncher.data.Prefs
 import app.olauncher.helper.SingleLiveEvent
 import app.olauncher.helper.WallpaperWorker
@@ -59,6 +61,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val privateSpaceApps = MutableLiveData<List<AppModel>?>()
     val privateSpaceLocked = MutableLiveData<Boolean>()
     val privateSpaceAvailable = MutableLiveData<Boolean>()
+
+    val contacts = MutableLiveData<List<Contact>>()
+    private var contactsJob: Job? = null
+    val widgetsChanged = MutableLiveData<Unit>()
 
     // Suppress backToHomeScreen during Private Space lock/unlock auth
     var isPrivateSpaceToggling = false
@@ -102,6 +108,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Constants.FLAG_SET_CLOCK_APP -> saveClockApp(appModel)
             Constants.FLAG_SET_CALENDAR_APP -> saveCalendarApp(appModel)
             Constants.FLAG_SET_SCREEN_TIME_APP -> saveScreenTimeApp(appModel)
+            Constants.FLAG_SET_QUICK_IMAGE_APP -> saveQuickImageApp(appModel)
+        }
+    }
+
+    private fun saveQuickImageApp(appModel: AppModel) {
+        if (appModel !is AppModel.App) {
+            appContext.showToast(appContext.getString(R.string.shortcuts_not_supported_here))
+            return
+        }
+        prefs.quickImageAppName = appModel.appLabel
+        prefs.quickImageAppPackage = appModel.appPackage
+        prefs.quickImageAppClassName = appModel.activityClassName.orEmpty()
+        prefs.quickImageAppUser = appModel.user.toString()
+    }
+
+    fun loadContacts() {
+        if (!ContactsLoader.hasPermission(appContext)) {
+            contacts.value = emptyList()
+            return
+        }
+        if (contactsJob?.isActive == true) return
+        contactsJob = viewModelScope.launch {
+            contacts.value = withContext(Dispatchers.IO) { ContactsLoader.load(appContext) }
         }
     }
 

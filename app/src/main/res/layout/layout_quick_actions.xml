@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Root stays visible and non-clickable so touches pass through while closed;
+     the scrim and panel are toggled instead -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:clipToPadding="false">
+
+    <View
+        android:id="@+id/quickScrim"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/quick_scrim"
+        android:clickable="true"
+        android:focusable="false"
+        android:visibility="gone" />
+
+    <app.olauncher.ui.quickactions.QuickActionsPanel
+        android:id="@+id/quickPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_quick_panel"
+        android:clickable="true"
+        android:elevation="8dp"
+        android:focusable="true"
+        android:orientation="vertical"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <ScrollView
+            android:id="@+id/quickScroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:overScrollMode="never"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="11dp">
+
+                <!-- Row 1: widget picker, image shortcut, three settings shortcuts -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <app.olauncher.ui.quickactions.SquareFrameLayout
+                        android:id="@+id/quickWidgets"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_quick_button"
+                        android:contentDescription="@string/add_widget"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_add" />
+                    </app.olauncher.ui.quickactions.SquareFrameLayout>
+
+                    <app.olauncher.ui.quickactions.SquareFrameLayout
+                        android:id="@+id/quickImage"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_quick_button"
+                        android:contentDescription="@string/image_shortcut"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_image" />
+                    </app.olauncher.ui.quickactions.SquareFrameLayout>
+
+                    <app.olauncher.ui.quickactions.SquareFrameLayout
+                        android:id="@+id/quickSetting1"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_quick_button"
+                        android:contentDescription="@string/settings_shortcut"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/quickSetting1Plus"
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_add" />
+
+                        <TextView
+                            android:id="@+id/quickSetting1Symbol"
+                            style="@style/QuickTileText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:textSize="22sp"
+                            android:visibility="gone" />
+                    </app.olauncher.ui.quickactions.SquareFrameLayout>
+
+                    <app.olauncher.ui.quickactions.SquareFrameLayout
+                        android:id="@+id/quickSetting2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_quick_button"
+                        android:contentDescription="@string/settings_shortcut"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/quickSetting2Plus"
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_add" />
+
+                        <TextView
+                            android:id="@+id/quickSetting2Symbol"
+                            style="@style/QuickTileText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:textSize="22sp"
+                            android:visibility="gone" />
+                    </app.olauncher.ui.quickactions.SquareFrameLayout>
+
+                    <app.olauncher.ui.quickactions.SquareFrameLayout
+                        android:id="@+id/quickSetting3"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_quick_button"
+                        android:contentDescription="@string/settings_shortcut"
+                        android:focusable="true">
+
+                        <ImageView
+                            android:id="@+id/quickSetting3Plus"
+                            android:layout_width="26dp"
+                            android:layout_height="26dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_add" />
+
+                        <TextView
+                            android:id="@+id/quickSetting3Symbol"
+                            style="@style/QuickTileText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:textSize="22sp"
+                            android:visibility="gone" />
+                    </app.olauncher.ui.quickactions.SquareFrameLayout>
+                </LinearLayout>
+
+                <!-- Row 2: A C E S search shortcuts -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <app.olauncher.ui.quickactions.SquareFrameLayout
+                        android:id="@+id/searchApps"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_quick_button"
+                        android:contentDescription="@string/search_apps_only"
+                        android:focusable="true">
+
+                        <TextView
+                            style="@style/QuickTileText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:text="A"
+                            tools:ignore="HardcodedText" />
+                    </app.olauncher.ui.quickactions.SquareFrameLayout>
+
+                    <app.olauncher.ui.quickactions.SquareFrameLayout
+                        android:id="@+id/searchContacts"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_quick_button"
+                        android:contentDescription="@string/search_contacts_only"
+                        android:focusable="true">
+
+                        <TextView
+                            style="@style/QuickTileText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:text="C"
+                            tools:ignore="HardcodedText" />
+                    </app.olauncher.ui.quickactions.SquareFrameLayout>
+
+                    <app.olauncher.ui.quickactions.SquareFrameLayout
+                        android:id="@+id/searchEngines"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_quick_button"
+                        android:contentDescription="@string/search_engines_only"
+                        android:focusable="true">
+
+                        <TextView
+                            style="@style/QuickTileText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:text="E"
+                            tools:ignore="HardcodedText" />
+                    </app.olauncher.ui.quickactions.SquareFrameLayout>
+
+                    <app.olauncher.ui.quickactions.SquareFrameLayout
+                        android:id="@+id/searchAll"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="5dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_quick_button"
+                        android:contentDescription="@string/search_everything"
+                        android:focusable="true">
+
+                        <TextView
+                            style="@style/QuickTileText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:text="S"
+                            tools:ignore="HardcodedText" />
+                    </app.olauncher.ui.quickactions.SquareFrameLayout>
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/homeSettings"
+                    style="@style/QuickBarText"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_margin="5dp"
+                    android:background="@drawable/bg_quick_bar"
+                    android:focusable="true"
+                    android:text="@string/home_settings" />
+            </LinearLayout>
+        </ScrollView>
+    </app.olauncher.ui.quickactions.QuickActionsPanel>
+</FrameLayout>

@@ -76,6 +76,7 @@ fun Context.createDialog(
     @StringRes neutral: Int = 0,
     onNeutral: () -> Unit = {},
     onAction: () -> Unit = {},
+    validate: () -> Boolean = { true },
     content: ((ViewGroup) -> View)? = null,
 ): OlDialog {
     val dialog = OlDialog(this)
@@ -101,6 +102,7 @@ fun Context.createDialog(
         dialog.dismiss()
     }
     binding.tvAction.setOnClickListener {
+        if (!validate()) return@setOnClickListener
         onAction()
         dialog.dismiss()
     }

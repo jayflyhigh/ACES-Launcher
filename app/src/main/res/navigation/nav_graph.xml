@@ -24,6 +24,27 @@
             app:exitAnim="@anim/fade_exit"
             app:popEnterAnim="@anim/fade_enter"
             app:popExitAnim="@anim/fade_exit" />
+        <action
+            android:id="@+id/action_mainFragment_to_universalSearchFragment"
+            app:destination="@id/universalSearchFragment"
+            app:enterAnim="@anim/fade_enter"
+            app:exitAnim="@anim/fade_exit"
+            app:popEnterAnim="@anim/fade_enter"
+            app:popExitAnim="@anim/fade_exit" />
+        <action
+            android:id="@+id/action_mainFragment_to_searchEnginesFragment"
+            app:destination="@id/searchEnginesFragment"
+            app:enterAnim="@anim/fade_enter"
+            app:exitAnim="@anim/fade_exit"
+            app:popEnterAnim="@anim/fade_enter"
+            app:popExitAnim="@anim/fade_exit" />
+        <action
+            android:id="@+id/action_mainFragment_to_widgetPickerFragment"
+            app:destination="@id/widgetPickerFragment"
+            app:enterAnim="@anim/fade_enter"
+            app:exitAnim="@anim/fade_exit"
+            app:popEnterAnim="@anim/fade_enter"
+            app:popExitAnim="@anim/fade_exit" />
     </fragment>
 
     <fragment
@@ -53,6 +74,31 @@
             app:exitAnim="@anim/fade_exit"
             app:popEnterAnim="@anim/fade_enter"
             app:popExitAnim="@anim/fade_exit" />
+        <action
+            android:id="@+id/action_settingsFragment_to_searchEnginesFragment"
+            app:destination="@id/searchEnginesFragment"
+            app:enterAnim="@anim/fade_enter"
+            app:exitAnim="@anim/fade_exit"
+            app:popEnterAnim="@anim/fade_enter"
+            app:popExitAnim="@anim/fade_exit" />
     </fragment>
+
+    <fragment
+        android:id="@+id/universalSearchFragment"
+        android:name="app.olauncher.ui.search.UniversalSearchFragment"
+        android:label="UniversalSearchFragment"
+        tools:layout="@layout/fragment_universal_search" />
+
+    <fragment
+        android:id="@+id/searchEnginesFragment"
+        android:name="app.olauncher.ui.search.SearchEnginesFragment"
+        android:label="SearchEnginesFragment"
+        tools:layout="@layout/fragment_search_engines" />
+
+    <fragment
+        android:id="@+id/widgetPickerFragment"
+        android:name="app.olauncher.ui.widgets.WidgetPickerFragment"
+        android:label="WidgetPickerFragment"
+        tools:layout="@layout/fragment_widget_picker" />
 
 </navigation>

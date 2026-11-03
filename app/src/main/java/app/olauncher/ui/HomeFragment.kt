@@ -24,6 +24,7 @@ import androidx.core.view.setPadding
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
+import app.olauncher.MainActivity
 import app.olauncher.MainViewModel
 import app.olauncher.R
 import app.olauncher.data.AppModel
@@ -44,6 +45,8 @@ import app.olauncher.helper.setPlainWallpaperByTheme
 import app.olauncher.helper.showToast
 import app.olauncher.listener.OnSwipeTouchListener
 import app.olauncher.listener.ViewSwipeTouchListener
+import app.olauncher.ui.quickactions.QuickActionsMenu
+import app.olauncher.ui.widgets.HomeWidgets
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -56,6 +59,8 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
+    private var quickActions: QuickActionsMenu? = null
+    private var homeWidgets: HomeWidgets? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
@@ -75,11 +80,31 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         setHomeAlignment(prefs.homeAlignment)
         initSwipeTouchListener()
         initClickListeners()
+        initQuickActionsAndWidgets()
+    }
+
+    private fun initQuickActionsAndWidgets() {
+        quickActions = QuickActionsMenu(this, binding.quickActions, prefs, viewModel)
+        val activity = requireActivity() as MainActivity
+        homeWidgets = HomeWidgets(this, binding.widgetContainer, prefs, activity.appWidgetHost, activity.appWidgetManager)
+        viewModel.widgetsChanged.observe(viewLifecycleOwner) { homeWidgets?.refresh() }
+    }
+
+    private fun openQuickActions() {
+        homeWidgets?.exitEditMode()
+        quickActions?.show()
+    }
+
+    override fun onStop() {
+        quickActions?.hide(false)
+        homeWidgets?.exitEditMode()
+        super.onStop()
     }
 
     override fun onResume() {
         super.onResume()
         populateHomeScreen(false)
+        homeWidgets?.refresh()
         viewModel.isOlauncherDefault()
         if (prefs.showStatusBar) showStatusBar()
         else hideStatusBar()
@@ -533,7 +558,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         )
     }
 
-    private fun showAppList(flag: Int, rename: Boolean = false, includeHiddenApps: Boolean = false) {
+    internal fun showAppList(flag: Int, rename: Boolean = false, includeHiddenApps: Boolean = false) {
         viewModel.getAppList(includeHiddenApps)
         try {
             findNavController().navigate(
@@ -652,7 +677,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
             override fun onSwipeUp() {
                 super.onSwipeUp()
-                showAppList(Constants.FLAG_LAUNCH_APP)
+                openQuickActions()
             }
 
             override fun onSwipeDown() {
@@ -662,6 +687,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
             override fun onLongClick() {
                 super.onLongClick()
+                if (homeWidgets?.exitEditMode() == true) return
                 try {
                     findNavController().navigate(R.id.action_mainFragment_to_settingsFragment)
                     viewModel.firstOpen(false)
@@ -681,6 +707,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
             override fun onClick() {
                 super.onClick()
+                if (homeWidgets?.exitEditMode() == true) return
                 viewModel.checkForMessages.call()
             }
         }
@@ -700,7 +727,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
             override fun onSwipeUp() {
                 super.onSwipeUp()
-                showAppList(Constants.FLAG_LAUNCH_APP)
+                openQuickActions()
             }
 
             override fun onSwipeDown() {
@@ -722,6 +749,8 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
     override fun onDestroyView() {
         super.onDestroyView()
+        quickActions = null
+        homeWidgets = null
         _binding = null
     }
 }

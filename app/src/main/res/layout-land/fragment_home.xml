@@ -181,6 +181,12 @@
 
     </LinearLayout>
 
+    <!-- Home screen widgets; empty areas pass touches through to mainLayout -->
+    <FrameLayout
+        android:id="@+id/widgetContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
     <TextView
         android:id="@+id/firstRunTips"
         style="@style/TextSmall"
@@ -205,4 +211,8 @@
         android:maxLines="1"
         android:text="@string/set_as_default_launcher_u"
         android:visibility="gone" />
+
+    <include
+        android:id="@+id/quickActions"
+        layout="@layout/layout_quick_actions" />
 </FrameLayout>
