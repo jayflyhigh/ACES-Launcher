@@ -16,6 +16,7 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Log
 import android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
@@ -177,6 +178,7 @@ class MainActivity : AppCompatActivity() {
         try {
             bindWidgetLauncher.launch(intent)
         } catch (e: Exception) {
+            Log.e(TAG, "Could not request bind permission for ${info.provider}", e)
             cancelPendingWidget()
             showToast(getString(R.string.widget_add_failed))
         }
@@ -185,11 +187,12 @@ class MainActivity : AppCompatActivity() {
     private fun configureOrCommitWidget(widgetId: Int) {
         val info = appWidgetManager.getAppWidgetInfo(widgetId)
         if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID || info == null) {
+            Log.w(TAG, "Widget $widgetId has no provider info after binding")
             cancelPendingWidget()
             showToast(getString(R.string.widget_add_failed))
             return
         }
-        if (info.configure == null) {
+        if (info.configure == null || isConfigurationOptional(info)) {
             commitWidget(widgetId)
             return
         }
@@ -207,11 +210,15 @@ class MainActivity : AppCompatActivity() {
                     Constants.REQUEST_CODE_CONFIGURE_WIDGET
                 )
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Could not start configuration for ${info.provider}", e)
             cancelPendingWidget()
             showToast(getString(R.string.widget_add_failed))
         }
     }
+
+    private fun isConfigurationOptional(info: AppWidgetProviderInfo): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                info.widgetFeatures and AppWidgetProviderInfo.WIDGET_FEATURE_CONFIGURATION_OPTIONAL != 0
 
     private fun commitWidget(widgetId: Int) {
         WidgetStore.add(prefs, widgetId)
@@ -524,6 +531,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private companion object {
+        const val TAG = "MainActivity"
         const val KEY_PENDING_WIDGET_ID = "pending_widget_id"
     }
 }

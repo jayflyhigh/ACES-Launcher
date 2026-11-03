@@ -57,6 +57,7 @@ class WidgetFrame(
     private var startHeight = 0
     private var longPressPosted = false
     private var draggingFrame = false
+    private var touchOnControl = false
 
     private val longPressRunnable = Runnable {
         longPressPosted = false
@@ -86,9 +87,12 @@ class WidgetFrame(
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         if (isEditing) {
-            if (ev.actionMasked == MotionEvent.ACTION_DOWN && isOnControl(ev)) return false
-            if (ev.actionMasked == MotionEvent.ACTION_DOWN) recordDown(ev)
-            return true
+            // A gesture that starts on a control stays with it, so its click/drag isn't cancelled
+            if (ev.actionMasked == MotionEvent.ACTION_DOWN) {
+                touchOnControl = isOnControl(ev)
+                if (!touchOnControl) recordDown(ev)
+            }
+            return !touchOnControl
         }
         trackLongPress(ev)
         return false
@@ -168,6 +172,7 @@ class WidgetFrame(
     private fun trackLongPress(ev: MotionEvent) {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                touchOnControl = false
                 recordDown(ev)
                 cancelLongPress()
                 postDelayed(longPressRunnable, longPressTimeout)
