@@ -5,18 +5,19 @@ import org.junit.Test
 
 class AppSearchLayoutTest {
     @Test
-    fun `short results align to the bottom of their available area`() {
-        assertEquals(300, bottomAlignmentOffset(500, 200))
+    fun `padding is unchanged when enough content space remains`() {
+        assertEquals(12 to 24, fitResultPadding(12, 24, 400, 192))
     }
 
     @Test
-    fun `results that fill or exceed the area retain normal scrolling positions`() {
-        assertEquals(0, bottomAlignmentOffset(500, 500))
-        assertEquals(0, bottomAlignmentOffset(500, 800))
+    fun `padding scales proportionally to keep two columns usable on narrow screens`() {
+        assertEquals(24 to 24, fitResultPadding(64, 64, 240, 192))
+        assertEquals(16 to 32, fitResultPadding(32, 64, 240, 192))
     }
 
     @Test
-    fun `keyboard reducing the results area never creates a negative offset`() {
-        assertEquals(0, bottomAlignmentOffset(100, 200))
+    fun `keyboard and very small preview areas never produce negative content dimensions`() {
+        assertEquals(0 to 0, fitResultPadding(64, 64, 30, 48))
+        assertEquals(0 to 0, fitResultPadding(0, 0, 0, 192))
     }
 }

@@ -23,7 +23,7 @@ class AppSearchAppearanceTest {
             assertEquals(AppSearchAppearance(), load(columns))
             assertEquals(0x40ffffff, load(columns).background(0x40ffffff))
             assertNull(load(columns).spacingDp)
-            assertNull(load(columns).alignment)
+            assertEquals(0, load(columns).paddingLeftDp)
             assertFalse(load(columns).applyTileColorToMenu)
         }
     }
@@ -36,7 +36,8 @@ class AppSearchAppearanceTest {
             backgroundColor = 0xffabcdef.toInt(),
             backgroundTransparency = 73,
             popupColor = 0xff223344.toInt(),
-            alignment = AppSearchAppearance.Alignment.RIGHT,
+            menuTileColor = 0xff778899.toInt(),
+            paddingLeftDp = 12, paddingRightDp = 24, paddingTopDp = 36, paddingBottomDp = 48,
             spacingDp = 21,
         )
         save(1, appearance)
@@ -44,11 +45,11 @@ class AppSearchAppearanceTest {
     }
 
     @Test
-    fun `colors are shared while alignment and spacing stay independent`() {
+    fun `colors are shared while padding and spacing stay independent`() {
         val one = AppSearchAppearance(tileColor = 0xff112233.toInt(), spacingDp = 0)
         val two = AppSearchAppearance(
             tileColor = 0xffaabbcc.toInt(), applyTileColorToMenu = true,
-            backgroundTransparency = 100, alignment = AppSearchAppearance.Alignment.BOTTOM, spacingDp = 32,
+            backgroundTransparency = 100, paddingBottomDp = 32, spacingDp = 32,
         )
         save(1, one)
         save(2, two)
@@ -56,7 +57,7 @@ class AppSearchAppearanceTest {
         save(1, shared)
         assertEquals(two.copy(popupColor = shared.popupColor), load(2))
         assertEquals(two.copy(
-            popupColor = shared.popupColor, alignment = one.alignment, spacingDp = one.spacingDp,
+            popupColor = shared.popupColor, paddingBottomDp = one.paddingBottomDp, spacingDp = one.spacingDp,
         ), load(1))
     }
 
@@ -106,6 +107,7 @@ class AppSearchAppearanceTest {
                 backgroundColor = 0xff445566.toInt(),
                 backgroundTransparency = columns * 25,
                 popupColor = 0xff778899.toInt(),
+                menuTileColor = 0xff445566.toInt(),
             )
             save(columns, colors)
             assertEquals(colors, load(1))
@@ -120,13 +122,13 @@ class AppSearchAppearanceTest {
         saved["APP_SEARCH_APPEARANCE_2_POPUP_COLOR"] = 0xff445566.toInt()
         saved["APP_SEARCH_APPEARANCE_1_SPACING"] = 4
         saved["APP_SEARCH_APPEARANCE_2_SPACING"] = 20
-        saved["APP_SEARCH_APPEARANCE_2_ALIGNMENT"] = AppSearchAppearance.Alignment.RIGHT.ordinal
+        saved["APP_SEARCH_APPEARANCE_2_ALIGNMENT"] = 3
         assertEquals(0xff112233.toInt(), load(1).tileColor)
         assertEquals(load(1).tileColor, load(2).tileColor)
         assertEquals(0xff445566.toInt(), load(1).popupColor)
         assertEquals(4, load(1).spacingDp)
         assertEquals(20, load(2).spacingDp)
-        assertEquals(AppSearchAppearance.Alignment.RIGHT, load(2).alignment)
+        assertEquals(0, load(2).paddingRightDp)
         save(2, load(2).copy(tileColor = 0xffabcdef.toInt()))
         assertEquals(0xffabcdef.toInt(), load(1).tileColor)
         assertEquals(4, load(1).spacingDp)
@@ -162,12 +164,27 @@ class AppSearchAppearanceTest {
     }
 
     @Test
-    fun `each alignment round trips independently`() {
-        AppSearchAppearance.Alignment.entries.forEach { alignment ->
-            val appearance = AppSearchAppearance(alignment = alignment)
-            save(2, appearance)
-            assertEquals(alignment, load(2).alignment)
-        }
+    fun `all four padding edges persist independently for each layout`() {
+        val one = AppSearchAppearance(paddingLeftDp = 1, paddingRightDp = 2, paddingTopDp = 3, paddingBottomDp = 4)
+        val two = AppSearchAppearance(paddingLeftDp = 64, paddingRightDp = 48, paddingTopDp = 32, paddingBottomDp = 16)
+        save(1, one)
+        save(2, two)
+        assertEquals(one, load(1))
+        assertEquals(two, load(2))
+    }
+
+    @Test
+    fun `independent menu tile color survives using and then disabling the result tile color`() {
+        val appearance = AppSearchAppearance(tileColor = 0xffaabbcc.toInt(), menuTileColor = 0xff112233.toInt())
+        save(1, appearance.copy(applyTileColorToMenu = true))
+        save(2, load(2).copy(applyTileColorToMenu = false))
+        assertEquals(appearance, load(1))
+        assertEquals(appearance, load(2))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `padding cannot exceed the supported range`() {
+        AppSearchAppearance(paddingTopDp = 65)
     }
 
     @Test(expected = IllegalArgumentException::class)

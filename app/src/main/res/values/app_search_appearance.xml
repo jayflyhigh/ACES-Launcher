@@ -1,20 +1,30 @@
 <!-- English fallback labels remain localizable as translations are added. -->
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="app_search_choose_settings">Choose Settings</string>
-    <string name="app_search_tile_color">Change Color of Tiles</string>
-    <string name="app_search_menu_tile_color">Apply Tile Color to Three-Line Menu Tiles</string>
-    <string name="app_search_background_color">Change Color of Background and Transparency</string>
-    <string name="app_search_popup_color">Change Color of Popup Menu Background</string>
-    <string name="app_search_alignment">Change Alignment</string>
-    <string name="app_search_spacing">Change Spacing Between Tiles</string>
+    <string name="app_search_choose_settings">Layout preview</string>
+    <string name="app_search_tile_color">Result tile color</string>
+    <string name="app_search_menu_tile_color">Use result tile color for menu tiles</string>
+    <string name="app_search_background_color">Page background color</string>
+    <string name="app_search_popup_color">Menu background color</string>
+    <string name="app_search_independent_menu_color">Menu tile color</string>
+    <string name="app_search_spacing">Space between tiles</string>
+    <string name="app_search_colors_heading">Colors</string>
+    <string name="app_search_colors_hint">Shared by both layouts. Tap a color to open the wheel. Text stays white.</string>
+    <string name="app_search_menu_heading">Three-line menu</string>
+    <string name="app_search_layout_heading">Layout and padding</string>
+    <string name="app_search_layout_hint">Saved separately for the selected layout. Padding adds space around the results, not inside tiles.</string>
+    <string name="app_search_choose_hint">Preview and edit a layout without changing your actual search layout.</string>
+    <string name="app_search_color_wheel">Color wheel. Drag to choose hue and saturation. Arrow keys adjust the selection; hex input is also available.</string>
+    <string name="app_search_brightness">Brightness</string>
+    <string name="app_search_brightness_value">Brightness: %1$d%%</string>
+    <string name="app_search_padding_left">Left padding: %1$d dp</string>
+    <string name="app_search_padding_right">Right padding: %1$d dp</string>
+    <string name="app_search_padding_top">Top padding: %1$d dp</string>
+    <string name="app_search_padding_bottom">Bottom padding: %1$d dp</string>
     <string name="app_search_preview">Live Preview</string>
     <string name="app_search_preview_menu">Preview popup menu</string>
     <string name="app_search_transparency_value">Transparency: %1$d%%</string>
     <string name="app_search_spacing_value">%1$d dp</string>
     <string name="app_search_default_spacing">Default: 8 dp vertical, 10 dp horizontal</string>
-    <string name="app_search_red">Red</string>
-    <string name="app_search_green">Green</string>
-    <string name="app_search_blue">Blue</string>
     <string name="app_search_hex">Hex color (#RRGGBB)</string>
     <string name="app_search_invalid_color">Enter six hexadecimal digits, for example #336699.</string>
     <string name="app_search_top">Top</string>
@@ -51,5 +61,22 @@
         <item name="android:max">255</item>
         <item name="android:progressTint">?attr/primaryColor</item>
         <item name="android:thumbTint">?attr/primaryColor</item>
+    </style>
+
+    <style name="AppSearchSettingsCard" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:background">@drawable/bg_quick_panel</item>
+        <item name="android:padding">12dp</item>
+    </style>
+
+    <style name="AppSearchSettingsHint" parent="TextSmall">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:alpha">0.75</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingBottom">8dp</item>
     </style>
 </resources>

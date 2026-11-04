@@ -4,6 +4,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
@@ -13,6 +14,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.PopupWindow
 import android.widget.SeekBar
+import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -22,6 +24,7 @@ import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.GridLayoutManager
 import app.olauncher.R
 import app.olauncher.data.AppSearchAppearance
 import app.olauncher.data.Prefs
@@ -44,6 +47,7 @@ class AppSearchSettingsFragment : BaseFragment() {
     private lateinit var tilePicker: AppSearchColorPicker
     private lateinit var backgroundPicker: AppSearchColorPicker
     private lateinit var popupPicker: AppSearchColorPicker
+    private lateinit var menuTilePicker: AppSearchColorPicker
     private var columns = 1
     private var updatingControls = false
     private var previewPopup: PopupWindow? = null
@@ -67,9 +71,12 @@ class AppSearchSettingsFragment : BaseFragment() {
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, previewBackCallback)
         previewAdapter = PreviewAdapter()
         binding.previewResults.apply {
-            layoutManager = AppSearchLayoutManager(requireContext(), columns)
+            layoutManager = GridLayoutManager(requireContext(), columns)
             adapter = previewAdapter
             itemAnimator = null
+            addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+                appearance.applyResultsPadding(view, columns)
+            }
         }
         ViewCompat.setOnApplyWindowInsetsListener(binding.appSearchSettingsRoot) { root, insets ->
             val safe = insets.getInsets(
@@ -86,14 +93,17 @@ class AppSearchSettingsFragment : BaseFragment() {
                 binding.preview.updateLayoutParams { this.height = height }
         }
         ViewCompat.requestApplyInsets(view)
-        tilePicker = AppSearchColorPicker(binding.tileColorPicker) {
+        tilePicker = AppSearchColorPicker(binding.tileColorPicker, binding.tileColor) {
             update(appearance.copy(tileColor = it))
         }
-        backgroundPicker = AppSearchColorPicker(binding.backgroundColorPicker) {
+        backgroundPicker = AppSearchColorPicker(binding.backgroundColorPicker, binding.backgroundColor) {
             update(appearance.copy(backgroundColor = it))
         }
-        popupPicker = AppSearchColorPicker(binding.popupColorPicker) {
+        popupPicker = AppSearchColorPicker(binding.popupColorPicker, binding.popupColor) {
             update(appearance.copy(popupColor = it))
+        }
+        menuTilePicker = AppSearchColorPicker(binding.menuTileColorPicker, binding.menuTileColor) {
+            update(appearance.copy(menuTileColor = it))
         }
         binding.decreaseLayout.setOnClickListener { if (columns == 2) chooseLayout(1) }
         binding.increaseLayout.setOnClickListener { if (columns == 1) chooseLayout(2) }
@@ -103,22 +113,19 @@ class AppSearchSettingsFragment : BaseFragment() {
             togglePicker(binding.popupColorPicker.root)
             if (binding.popupColorPicker.root.isVisible && previewPopup == null) togglePreviewMenu()
         }
+        binding.menuTileColor.setOnClickListener {
+            togglePicker(binding.menuTileColorPicker.root)
+            if (binding.menuTileColorPicker.root.isVisible && previewPopup == null) togglePreviewMenu()
+        }
         binding.applyColorToMenu.setOnCheckedChangeListener { _, checked ->
             if (!updatingControls) update(appearance.copy(applyTileColorToMenu = checked))
         }
         binding.transparency.onUserProgress { update(appearance.copy(backgroundTransparency = it)) }
         binding.spacing.onUserProgress { update(appearance.copy(spacingDp = it)) }
-        binding.alignment.setOnCheckedChangeListener { _, checkedId ->
-            if (!updatingControls) {
-                val alignment = when (checkedId) {
-                    R.id.alignBottom -> AppSearchAppearance.Alignment.BOTTOM
-                    R.id.alignLeft -> AppSearchAppearance.Alignment.LEFT
-                    R.id.alignRight -> AppSearchAppearance.Alignment.RIGHT
-                    else -> AppSearchAppearance.Alignment.TOP
-                }
-                update(appearance.copy(alignment = alignment))
-            }
-        }
+        binding.paddingLeft.onUserProgress { update(appearance.copy(paddingLeftDp = it)) }
+        binding.paddingRight.onUserProgress { update(appearance.copy(paddingRightDp = it)) }
+        binding.paddingTop.onUserProgress { update(appearance.copy(paddingTopDp = it)) }
+        binding.paddingBottom.onUserProgress { update(appearance.copy(paddingBottomDp = it)) }
         binding.previewMenu.setOnClickListener { togglePreviewMenu() }
         render()
         updatingControls = true
@@ -130,14 +137,18 @@ class AppSearchSettingsFragment : BaseFragment() {
     }
 
     private fun togglePicker(picker: View) {
-        picker.isVisible = !picker.isVisible
+        val show = !picker.isVisible
+        listOf(binding.tileColorPicker.root, binding.backgroundColorPicker.root,
+            binding.popupColorPicker.root, binding.menuTileColorPicker.root).forEach {
+            it.isVisible = it === picker && show
+        }
     }
 
     private fun chooseLayout(count: Int) {
         columns = count
         appearance = prefs.appSearchAppearance(columns)
         previewPopup?.dismiss()
-        val manager = binding.previewResults.layoutManager as AppSearchLayoutManager
+        val manager = binding.previewResults.layoutManager as GridLayoutManager
         manager.spanCount = columns
         manager.scrollToPositionWithOffset(0, 0)
         render()
@@ -160,7 +171,10 @@ class AppSearchSettingsFragment : BaseFragment() {
         tilePicker.setColor(appearance.tileColor ?: context.getColorFromAttr(R.attr.primaryInverseColor))
         backgroundPicker.setColor(appearance.backgroundColor ?: context.getColorFromAttr(R.attr.primaryShadeDarkColor))
         popupPicker.setColor(appearance.popupColor ?: context.getColorFromAttr(R.attr.primaryInverseColor))
+        menuTilePicker.setColor(appearance.menuTileColor ?: context.getColorFromAttr(R.attr.primaryShadeColor))
         binding.applyColorToMenu.isChecked = appearance.applyTileColorToMenu
+        binding.menuTileColor.isVisible = !appearance.applyTileColorToMenu
+        if (appearance.applyTileColorToMenu) binding.menuTileColorPicker.root.isVisible = false
         val background = appearance.background(context.getColorFromAttr(R.attr.primaryShadeDarkColor))
         val transparency = appearance.backgroundTransparency ?: (100 - Color.alpha(background) * 100 / 255f).roundToInt()
         binding.transparency.progress = transparency
@@ -169,24 +183,23 @@ class AppSearchSettingsFragment : BaseFragment() {
         binding.spacing.progress = appearance.spacingDp ?: 8
         binding.spacingValue.text = appearance.spacingDp?.let { getString(R.string.app_search_spacing_value, it) }
             ?: getString(R.string.app_search_default_spacing)
-        binding.alignment.check(when (appearance.alignment) {
-            AppSearchAppearance.Alignment.BOTTOM -> R.id.alignBottom
-            AppSearchAppearance.Alignment.LEFT -> R.id.alignLeft
-            AppSearchAppearance.Alignment.RIGHT -> R.id.alignRight
-            else -> R.id.alignTop
-        })
+        listOf(
+            Triple(binding.paddingLeft, binding.paddingLeftValue, appearance.paddingLeftDp),
+            Triple(binding.paddingRight, binding.paddingRightValue, appearance.paddingRightDp),
+            Triple(binding.paddingTop, binding.paddingTopValue, appearance.paddingTopDp),
+            Triple(binding.paddingBottom, binding.paddingBottomValue, appearance.paddingBottomDp),
+        ).forEachIndexed { index, (slider, label, value) ->
+            slider.max = AppSearchAppearance.MAX_PADDING_DP
+            slider.progress = value
+            label.text = getString(listOf(R.string.app_search_padding_left, R.string.app_search_padding_right,
+                R.string.app_search_padding_top, R.string.app_search_padding_bottom)[index], value)
+        }
         updatingControls = false
         binding.preview.setBackgroundColor(background)
-        val foreground = if (appearance.backgroundColor != null) contrastColor(background)
-            else context.getColorFromAttr(R.attr.primaryColor)
+        val foreground = Color.WHITE
         binding.previewTitle.setTextColor(foreground)
         binding.previewMenu.imageTintList = android.content.res.ColorStateList.valueOf(foreground)
-        val manager = binding.previewResults.layoutManager as AppSearchLayoutManager
-        val bottom = appearance.alignment == AppSearchAppearance.Alignment.BOTTOM
-        if (manager.alignBottom != bottom) {
-            manager.alignBottom = bottom
-            manager.scrollToPositionWithOffset(0, 0)
-        }
+        appearance.applyResultsPadding(binding.previewResults, columns)
         previewAdapter.notifyItemRangeChanged(0, 2)
         binding.previewResults.requestLayout()
         previewPopupBinding?.let {
@@ -296,19 +309,27 @@ private fun SeekBar.onUserProgress(onChange: (Int) -> Unit) {
 
 private class AppSearchColorPicker(
     private val binding: ViewAppSearchColorPickerBinding,
+    private val button: TextView,
     private val onChange: (Int) -> Unit,
 ) {
     private var color: Int? = null
     private var updating = false
+    private val hsv = floatArrayOf(0f, 0f, 1f)
 
     init {
-        listOf(binding.hex, binding.red, binding.green, binding.blue).forEach { it.isSaveEnabled = false }
-        listOf(binding.red, binding.green, binding.blue).forEach { slider ->
-            slider.onUserProgress {
-                val color = Color.rgb(binding.red.progress, binding.green.progress, binding.blue.progress)
-                setColor(color)
-                onChange(color)
-            }
+        listOf(binding.hex, binding.wheel, binding.brightness).forEach { it.isSaveEnabled = false }
+        binding.wheel.onColorChanged = {
+            Color.colorToHSV(it, hsv)
+            hsv[2] = binding.brightness.progress / 100f
+            val value = Color.HSVToColor(hsv)
+            setColor(value, keepHue = true)
+            onChange(value)
+        }
+        binding.brightness.onUserProgress {
+            hsv[2] = it / 100f
+            val value = Color.HSVToColor(hsv)
+            setColor(value, keepHue = true)
+            onChange(value)
         }
         binding.hex.doAfterTextChanged { text ->
             if (!updating) {
@@ -316,7 +337,7 @@ private class AppSearchColorPicker(
                 if (hex.matches(Regex("[0-9a-fA-F]{6}"))) {
                     val value = hex.toInt(16) or Color.BLACK
                     color = value
-                    updateChannels(value)
+                    updateControls(value)
                     binding.hex.error = null
                     onChange(value)
                 } else {
@@ -326,20 +347,30 @@ private class AppSearchColorPicker(
         }
     }
 
-    fun setColor(value: Int) {
+    fun setColor(value: Int, keepHue: Boolean = false) {
         val opaque = value or Color.BLACK
-        if (color == opaque) return
+        if (color == opaque && !keepHue) return
         color = opaque
         updating = true
         binding.hex.setText(String.format(Locale.ROOT, "#%06X", opaque and 0xffffff))
         binding.hex.error = null
-        updateChannels(opaque)
+        updateControls(opaque, keepHue)
         updating = false
     }
 
-    private fun updateChannels(value: Int) {
-        binding.red.progress = Color.red(value)
-        binding.green.progress = Color.green(value)
-        binding.blue.progress = Color.blue(value)
+    private fun updateControls(value: Int, keepHue: Boolean = false) {
+        if (!keepHue) Color.colorToHSV(value, hsv)
+        val brightness = (hsv[2] * 100).roundToInt()
+        binding.brightness.progress = brightness
+        binding.brightnessValue.text = binding.root.context.getString(R.string.app_search_brightness_value, brightness)
+        binding.wheel.setColor(Color.HSVToColor(floatArrayOf(hsv[0], hsv[1], 1f)))
+        val size = (24 * button.resources.displayMetrics.density).roundToInt()
+        val swatch = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(value)
+            setStroke((button.resources.displayMetrics.density).roundToInt().coerceAtLeast(1), Color.GRAY)
+            setBounds(0, 0, size, size)
+        }
+        button.setCompoundDrawablesRelative(null, null, swatch, null)
     }
 }

@@ -6,14 +6,12 @@ import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
 import androidx.core.content.ContextCompat
-import androidx.core.content.res.use
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.updateLayoutParams
+import androidx.core.view.updatePadding
 import app.olauncher.R
 import app.olauncher.data.AppSearchAppearance
 import app.olauncher.databinding.ItemSearchAppBinding
@@ -46,52 +44,29 @@ internal fun AppSearchAppearance.applyMenu(binding: PopupSearchPageMenuBinding):
     val panel = (binding.root.background as GradientDrawable).mutate() as GradientDrawable
     panel.setColor(popupColor ?: context.getColorFromAttr(R.attr.primaryColorInverseTrans90))
     val tileColor = if (applyTileColorToMenu)
-        tileColor ?: context.getColorFromAttr(R.attr.primaryInverseColor) else null
+        tileColor ?: context.getColorFromAttr(R.attr.primaryInverseColor) else menuTileColor
     binding.searchPageSettings.background = context.appSearchSurface(R.drawable.bg_quick_bar, tileColor)
     val tileCountRow = binding.decreaseTileCount.parent as View
     tileCountRow.background = context.appSearchSurface(R.drawable.bg_quick_bar, tileColor)
-    val defaultTextColors = context.obtainStyledAttributes(
-        R.style.TextSmall, intArrayOf(android.R.attr.textColor)
-    ).use { it.getColorStateList(0) }
-    binding.searchPageSettings.setTextColor(defaultTextColors)
-    binding.tileCount.setTextColor(defaultTextColors)
-    val defaultTint = ColorStateList.valueOf(context.getColorFromAttr(R.attr.primaryColor))
-    binding.decreaseTileCount.imageTintList = defaultTint
-    binding.increaseTileCount.imageTintList = defaultTint
-    if (popupColor != null || applyTileColorToMenu) {
-        val panelColor = popupColor ?: context.getColorFromAttr(R.attr.primaryInverseColor)
-        val fill = tileColor ?: ColorUtils.compositeColors(
-            ColorUtils.setAlphaComponent(context.getColorFromAttr(R.attr.primaryColor), 26), panelColor,
-        )
-        val foreground = contrastColor(fill)
-        binding.searchPageSettings.setTextColor(foreground)
-        binding.tileCount.setTextColor(foreground)
-        binding.decreaseTileCount.imageTintList = ColorStateList.valueOf(foreground)
-        binding.increaseTileCount.imageTintList = ColorStateList.valueOf(foreground)
-    }
+    binding.searchPageSettings.setTextColor(Color.WHITE)
+    binding.tileCount.setTextColor(Color.WHITE)
+    binding.decreaseTileCount.imageTintList = ColorStateList.valueOf(Color.WHITE)
+    binding.increaseTileCount.imageTintList = ColorStateList.valueOf(Color.WHITE)
     return panel
 }
 
 /** Shared by the real app results and the two non-launching preview rows. */
 internal class AppSearchTileStyle(private val binding: ItemSearchAppBinding) {
-    private val defaultTextColors = binding.itemTitle.textColors
     private val defaultShadowColor = binding.itemTitle.shadowColor
     private val defaultShadowRadius = binding.itemTitle.shadowRadius
     private val defaultShadowDx = binding.itemTitle.shadowDx
     private val defaultShadowDy = binding.itemTitle.shadowDy
-    private val defaultGravity = binding.root.gravity
-    private var horizontalAlignment = false
     private var appliedAppearance: AppSearchAppearance? = null
     private var appliedColumns = 0
     private var appliedLabelGravity = 0
 
-    init {
-        binding.root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> constrainTitle() }
-    }
-
     fun apply(appearance: AppSearchAppearance, columns: Int, labelGravity: Int) = with(binding) {
         if (appliedAppearance == appearance && appliedColumns == columns && appliedLabelGravity == labelGravity) {
-            constrainTitle()
             return@with
         }
         appliedAppearance = appearance
@@ -105,26 +80,9 @@ internal class AppSearchTileStyle(private val binding: ItemSearchAppBinding) {
         }
         itemTitle.maxLines = if (columns == 2) 2 else 1
         root.background = root.context.appSearchSurface(R.drawable.bg_search_result, appearance.tileColor)
-        appearance.tileColor?.let {
-            itemTitle.setTextColor(contrastColor(it))
-            itemTitle.setShadowLayer(0f, 0f, 0f, Color.TRANSPARENT)
-        } ?: run {
-            itemTitle.setTextColor(defaultTextColors)
-            itemTitle.setShadowLayer(defaultShadowRadius, defaultShadowDx, defaultShadowDy, defaultShadowColor)
-        }
-        horizontalAlignment = appearance.alignment == AppSearchAppearance.Alignment.LEFT ||
-            appearance.alignment == AppSearchAppearance.Alignment.RIGHT
-        val gravity = when (appearance.alignment) {
-            AppSearchAppearance.Alignment.LEFT -> Gravity.LEFT
-            AppSearchAppearance.Alignment.RIGHT -> Gravity.RIGHT
-            else -> labelGravity
-        }
-        root.gravity = if (horizontalAlignment) gravity or Gravity.CENTER_VERTICAL else defaultGravity
-        itemTitle.gravity = gravity
-        itemTitle.updateLayoutParams<LinearLayout.LayoutParams> {
-            width = if (horizontalAlignment) ViewGroup.LayoutParams.WRAP_CONTENT else 0
-            weight = if (horizontalAlignment) 0f else 1f
-        }
+        itemTitle.setTextColor(Color.WHITE)
+        itemTitle.setShadowLayer(defaultShadowRadius, defaultShadowDx, defaultShadowDy, defaultShadowColor)
+        itemTitle.gravity = labelGravity
         val gap = appearance.spacingDp?.let { (it * density).roundToInt() }
         root.updateLayoutParams<ViewGroup.MarginLayoutParams> {
             leftMargin = gap?.div(2) ?: (5 * density).roundToInt()
@@ -132,16 +90,28 @@ internal class AppSearchTileStyle(private val binding: ItemSearchAppBinding) {
             topMargin = gap?.div(2) ?: (4 * density).roundToInt()
             bottomMargin = gap?.let { it - it / 2 } ?: (4 * density).roundToInt()
         }
-        constrainTitle()
     }
+}
 
-    private fun constrainTitle() = with(binding) {
-        val iconParams = itemIcon.layoutParams as ViewGroup.MarginLayoutParams
-        val iconWidth = if (itemIcon.visibility == View.GONE) 0 else
-            iconParams.width + iconParams.marginStart + iconParams.marginEnd
-        val maxWidth = if (horizontalAlignment && root.width > 0)
-            (root.width - root.paddingLeft - root.paddingRight - iconWidth).coerceAtLeast(0)
-        else Int.MAX_VALUE
-        if (itemTitle.maxWidth != maxWidth) itemTitle.maxWidth = maxWidth
-    }
+internal fun AppSearchAppearance.applyResultsPadding(view: View, columns: Int) {
+    val density = view.resources.displayMetrics.density
+    val horizontal = fitResultPadding(
+        (paddingLeftDp * density).roundToInt(), (paddingRightDp * density).roundToInt(),
+        view.width, (96 * columns * density).roundToInt(),
+    )
+    val vertical = fitResultPadding(
+        (paddingTopDp * density).roundToInt(), (paddingBottomDp * density).roundToInt(),
+        view.height, (48 * density).roundToInt(),
+    )
+    if (view.paddingLeft != horizontal.first || view.paddingRight != horizontal.second ||
+        view.paddingTop != vertical.first || view.paddingBottom != vertical.second
+    ) view.updatePadding(left = horizontal.first, right = horizontal.second, top = vertical.first, bottom = vertical.second)
+}
+
+internal fun fitResultPadding(first: Int, second: Int, available: Int, minimumContent: Int): Pair<Int, Int> {
+    val budget = (available - minimumContent).coerceAtLeast(0)
+    val total = first + second
+    if (total <= budget || total == 0) return first to second
+    val scaledFirst = (first.toFloat() * budget / total).roundToInt()
+    return scaledFirst to budget - scaledFirst
 }

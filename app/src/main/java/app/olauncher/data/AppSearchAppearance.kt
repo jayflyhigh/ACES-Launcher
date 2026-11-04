@@ -8,14 +8,17 @@ data class AppSearchAppearance(
     val backgroundColor: Int? = null,
     val backgroundTransparency: Int? = null,
     val popupColor: Int? = null,
-    val alignment: Alignment? = null,
+    val menuTileColor: Int? = null,
     val spacingDp: Int? = null,
+    val paddingLeftDp: Int = 0,
+    val paddingRightDp: Int = 0,
+    val paddingTopDp: Int = 0,
+    val paddingBottomDp: Int = 0,
 ) {
-    enum class Alignment { TOP, BOTTOM, LEFT, RIGHT }
-
     init {
         require(backgroundTransparency == null || backgroundTransparency in 0..100)
         require(spacingDp == null || spacingDp in 0..MAX_SPACING_DP)
+        require(listOf(paddingLeftDp, paddingRightDp, paddingTopDp, paddingBottomDp).all { it in 0..MAX_PADDING_DP })
     }
 
     fun background(defaultColor: Int): Int {
@@ -34,13 +37,18 @@ data class AppSearchAppearance(
             "BACKGROUND_COLOR" to backgroundColor,
             "TRANSPARENCY" to backgroundTransparency,
             "POPUP_COLOR" to popupColor,
+            "MENU_TILE_COLOR" to menuTileColor,
         ).forEach { (key, value) -> write(SHARED_COLORS + key, value) }
-        write(prefix + "ALIGNMENT", alignment?.ordinal)
         write(prefix + "SPACING", spacingDp)
+        write(prefix + "PADDING_LEFT", paddingLeftDp)
+        write(prefix + "PADDING_RIGHT", paddingRightDp)
+        write(prefix + "PADDING_TOP", paddingTopDp)
+        write(prefix + "PADDING_BOTTOM", paddingBottomDp)
     }
 
     companion object {
         const val MAX_SPACING_DP = 32
+        const val MAX_PADDING_DP = 64
         private const val SHARED_COLORS = "APP_SEARCH_APPEARANCE_COLORS_"
 
         private fun prefix(columns: Int): String {
@@ -61,8 +69,12 @@ data class AppSearchAppearance(
                 backgroundColor = color("BACKGROUND_COLOR"),
                 backgroundTransparency = color("TRANSPARENCY"),
                 popupColor = color("POPUP_COLOR"),
-                alignment = value("ALIGNMENT")?.let { Alignment.entries[it] },
+                menuTileColor = color("MENU_TILE_COLOR"),
                 spacingDp = value("SPACING"),
+                paddingLeftDp = value("PADDING_LEFT") ?: 0,
+                paddingRightDp = value("PADDING_RIGHT") ?: 0,
+                paddingTopDp = value("PADDING_TOP") ?: 0,
+                paddingBottomDp = value("PADDING_BOTTOM") ?: 0,
             )
         }
     }

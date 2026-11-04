@@ -7,35 +7,23 @@
     android:paddingEnd="12dp"
     android:visibility="gone">
 
-    <TextView
-        style="@style/AppSearchColorChannel"
-        android:labelFor="@id/red"
-        android:text="@string/app_search_red" />
-
-    <SeekBar
-        android:id="@+id/red"
-        style="@style/AppSearchColorSlider"
-        android:contentDescription="@string/app_search_red" />
+    <app.olauncher.ui.search.AppSearchColorWheel
+        android:id="@+id/wheel"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:layout_marginTop="8dp" />
 
     <TextView
+        android:id="@+id/brightnessValue"
         style="@style/AppSearchColorChannel"
-        android:labelFor="@id/green"
-        android:text="@string/app_search_green" />
+        android:labelFor="@id/brightness"
+        android:text="@string/app_search_brightness" />
 
     <SeekBar
-        android:id="@+id/green"
+        android:id="@+id/brightness"
         style="@style/AppSearchColorSlider"
-        android:contentDescription="@string/app_search_green" />
-
-    <TextView
-        style="@style/AppSearchColorChannel"
-        android:labelFor="@id/blue"
-        android:text="@string/app_search_blue" />
-
-    <SeekBar
-        android:id="@+id/blue"
-        style="@style/AppSearchColorSlider"
-        android:contentDescription="@string/app_search_blue" />
+        android:max="100"
+        android:contentDescription="@string/app_search_brightness" />
 
     <EditText
         android:id="@+id/hex"

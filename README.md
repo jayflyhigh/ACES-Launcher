@@ -28,20 +28,26 @@ License: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
 Open **ACES → A - App search settings** to customize App Search. The fixed preview
 uses two non-launching app results and includes a button to preview the existing
-three-line menu. Expand a color control to use RGB sliders or enter `#RRGGBB`.
+three-line menu. Settings are grouped into Layout Preview, Colors, Three-Line Menu,
+and Layout and Padding. Expand a color control to use the hue/saturation wheel,
+brightness slider, or enter `#RRGGBB`. Color swatches show the current selection.
+Result and menu text stays white regardless of the chosen background.
 
 **Choose Settings** selects which layout to edit; it does not change the actual
 search layout. Tile colors, menu-tile color opt-in, page background and transparency,
-and popup background are shared by both layouts. Alignment and spacing remain
+and popup background are shared by both layouts. When menu tiles do not use the
+result tile color, a separate Menu Tile Color control is available and saved.
+Left, right, top, and bottom results-area padding and spacing remain
 independently saved for each layout. Existing colors use the previously saved
 one-column value, falling back to the two-column value when unset.
 The settings screen has an opaque background; preview transparency does not affect
 the controls. The popup preview stays open while editing colors and closes with
 its preview button or Back. The existing **Number of Tiles** menu selects the active
 search layout and its saved appearance. Unchanged settings retain themed defaults.
-Top/Bottom position short result lists within the results area; Left/Right align
-the app icon and name within the existing full-width tiles. Longer lists remain
-scrollable. These customizations apply only to App Search, not other search pages.
+Padding affects only the results area, not the search bar or tile interiors, and
+is limited on small screens to keep results usable. Alignment controls have been
+removed. Results remain scrollable. These customizations apply only to App Search,
+not other search pages.
 
 Developer: [@tanujnotes](https://x.com/tanujnotes)
 
