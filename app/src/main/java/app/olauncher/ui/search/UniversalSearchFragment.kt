@@ -26,6 +26,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -35,6 +36,9 @@ import app.olauncher.data.AppModel
 import app.olauncher.data.AppSearchAppearance
 import app.olauncher.data.Constants
 import app.olauncher.data.Contact
+import app.olauncher.data.ContactCommand
+import app.olauncher.data.ContactCommandQuery
+import app.olauncher.data.ContactCommandSession
 import app.olauncher.data.ContactsLoader
 import app.olauncher.data.Prefs
 import app.olauncher.data.SearchEngine
@@ -54,6 +58,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
@@ -81,6 +86,13 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private var searchTileCount = 1
     private var appAppearance: AppSearchAppearance? = null
     private var activePopupWindow: PopupWindow? = null
+    private var commandSession = ContactCommandSession()
+    private var commandJob: Job? = null
+    private var commandExecutor: ContactCommandExecutor? = null
+    private var commandSubmitQuery: String? = null
+    private var filterGeneration = 0L
+    private var restoringCommandState = false
+    private var displayedCommand: ContactCommand? = null
 
     private val popupBackCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
@@ -103,6 +115,17 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         super.onViewCreated(view, savedInstanceState)
         prefs = Prefs(requireContext())
         mode = SearchMode.from(arguments?.getString(Constants.Key.SEARCH_MODE))
+        displayedCommand = null
+        if (mode == SearchMode.CONTACTS_ONLY) {
+            restoringCommandState = savedInstanceState != null
+            if (savedInstanceState != null) {
+                commandSession = ContactCommandSession(
+                    savedInstanceState.getString("contactCommandQuery").orEmpty(),
+                    savedInstanceState.getBoolean("contactCommandConsumed"),
+                )
+            }
+            commandExecutor = ContactCommandExecutor(requireContext(), viewLifecycleOwner)
+        }
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, popupBackCallback)
 
         initSearchView()
@@ -112,6 +135,12 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         if (mode == SearchMode.CONTACTS_ONLY && savedInstanceState == null && !ContactsLoader.hasPermission(requireContext()))
             requestContactsPermission()
         rebuild()
+    }
+
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        restoringCommandState = false
+        if (mode == SearchMode.CONTACTS_ONLY) rebuild()
     }
 
     private fun initSearchView() {
@@ -213,6 +242,9 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 rebuild()
             }
             viewModel.loadContacts()
+            if (mode == SearchMode.CONTACTS_ONLY) {
+                viewModel.contactsLoading.observe(viewLifecycleOwner) { rebuild() }
+            }
         }
     }
 
@@ -229,6 +261,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 findNavController().navigate(R.id.appSearchSettingsFragment)
             } else if (mode == SearchMode.ENGINES_ONLY) {
                 findNavController().navigate(R.id.searchEnginesFragment)
+            } else if (mode == SearchMode.CONTACTS_ONLY) {
+                findNavController().navigate(R.id.contactSearchSettingsFragment)
             } else {
                 findNavController().navigate(
                     R.id.settingsFragment,
@@ -357,8 +391,19 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private fun currentQuery() = _binding?.search?.query?.toString().orEmpty()
 
     private fun rebuild() {
-        if (_binding == null) return
+        if (_binding == null || !::adapter.isInitialized) return
+        if (mode == SearchMode.CONTACTS_ONLY && restoringCommandState) return
         val query = currentQuery()
+        val generation = ++filterGeneration
+        if (mode == SearchMode.CONTACTS_ONLY) {
+            commandJob?.cancel()
+            if (commandSession.query != query) {
+                commandExecutor?.cancel()
+                commandSubmitQuery = null
+            }
+            commandSession.update(query)
+            updateCommandIndicator()
+        }
         val appsSnapshot = if (privateSpaceLocked) apps else apps + privateApps
         val contactsSnapshot = contacts
         val enginesSnapshot = engines
@@ -375,6 +420,18 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 buildItems(query, appsSnapshot, contactsSnapshot, enginesSnapshot, contactsGranted, titles)
             }
             adapter.submitList(items) {
+                if (_binding == null || query != currentQuery() || generation != filterGeneration) return@submitList
+                if (mode == SearchMode.CONTACTS_ONLY) {
+                    if (commandSubmitQuery == query) {
+                        commandSubmitQuery = null
+                        if (viewModel.contactsLoading.value != true) {
+                            items.filterIsInstance<SearchItem.ContactItem>().singleOrNull()?.let {
+                                executeContactCommand(it.contact, query)
+                            }
+                        }
+                    } else scheduleContactCommand(query, items)
+                    return@submitList
+                }
                 if (mode != SearchMode.APPS_ONLY || query.isBlank() || query.startsWith(" ") ||
                     query != currentQuery() || isSearchComposing() || query == autoLaunchedQuery
                 ) return@submitList
@@ -394,6 +451,80 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         return start >= 0 && end > start
     }
 
+    private fun updateCommandIndicator() {
+        val parsed = ContactCommandQuery.parse(currentQuery())
+            ?.takeIf { prefs.contactCommandSettings().showIndicator }
+        if (parsed?.command == displayedCommand) return
+        displayedCommand = parsed?.command
+        val label = when (parsed?.command) {
+            ContactCommand.PHONE -> R.string.contact_command_phone
+            ContactCommand.MESSAGE -> R.string.contact_command_message
+            ContactCommand.WHATSAPP -> R.string.whatsapp
+            ContactCommand.CONTACT -> R.string.contact_command_contact
+            null -> R.string.contacts
+        }
+        binding.modeTitle.setText(label)
+        val icon = when (parsed?.command) {
+            ContactCommand.PHONE -> R.drawable.ic_call
+            ContactCommand.MESSAGE -> R.drawable.ic_message
+            ContactCommand.WHATSAPP -> R.drawable.ic_whatsapp
+            ContactCommand.CONTACT -> R.drawable.ic_person
+            null -> null
+        }
+        val drawable = icon?.let { ContextCompat.getDrawable(requireContext(), it)?.mutate() }?.apply {
+            val size = (18 * resources.displayMetrics.density).toInt()
+            setBounds(0, 0, size, size)
+            setTint(android.graphics.Color.WHITE)
+        }
+        binding.modeTitle.compoundDrawablePadding = (8 * resources.displayMetrics.density).toInt()
+        binding.modeTitle.setCompoundDrawablesRelative(drawable, null, null, null)
+    }
+
+    private fun scheduleContactCommand(query: String, items: List<SearchItem>) {
+        commandJob?.cancel()
+        val matches = items.filterIsInstance<SearchItem.ContactItem>()
+        val settings = prefs.contactCommandSettings()
+        if (!commandSession.automaticCandidate(
+                settings, matches.size, viewModel.contactsLoading.value == true,
+                viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED), isSearchComposing()
+            ) || !ContactsLoader.hasPermission(requireContext())
+        ) return
+        val contact = matches.single().contact
+        if (ContactCommandQuery.parse(query)?.command != ContactCommand.CONTACT && contact.number.isNullOrBlank()) return
+        commandJob = viewLifecycleOwner.lifecycleScope.launch {
+            delay(settings.delayMillis.toLong())
+            if (query == currentQuery() && commandSession.automaticCandidate(
+                    prefs.contactCommandSettings(), matches.size, viewModel.contactsLoading.value == true,
+                    viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED), isSearchComposing()
+                ) && ContactsLoader.hasPermission(requireContext())
+            ) executeContactCommand(contact, query)
+        }
+    }
+
+    private fun executeContactCommand(contact: Contact, query: String = currentQuery()) {
+        commandJob?.cancel()
+        val parsed = ContactCommandQuery.parse(query) ?: return
+        if (query != currentQuery() || viewModel.contactsLoading.value == true ||
+            !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        ) return
+        if (!ContactsLoader.hasPermission(requireContext())) {
+            requireContext().showToast(R.string.contacts_permission_denied)
+            return
+        }
+        if (!AppSearchMatcher(parsed.name).matches(contact.name)) return
+        if (!commandSession.claim(query)) return
+        activePopupWindow?.dismiss()
+        commandExecutor?.execute(contact, parsed.command)
+    }
+
+    private fun cancelAutomaticCommand() {
+        if (mode != SearchMode.CONTACTS_ONLY) return
+        commandJob?.cancel()
+        commandExecutor?.cancel()
+        commandSubmitQuery = null
+        if (ContactCommandQuery.parse(currentQuery()) != null) commandSession.consumed = true
+    }
+
     private class Titles(val apps: String, val contacts: String, val search: String, val permission: String)
 
     private suspend fun buildItems(
@@ -404,7 +535,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         contactsGranted: Boolean,
         titles: Titles,
     ): List<SearchItem> {
-        val q = query.trim()
+        val commandQuery = if (mode == SearchMode.CONTACTS_ONLY) ContactCommandQuery.parse(query) else null
+        val q = commandQuery?.name ?: query.trim()
         val matcher = AppSearchMatcher(q)
         val coroutineContext = currentCoroutineContext()
         val showHeaders = mode == SearchMode.ALL_SEARCH
@@ -426,7 +558,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 if (showHeaders) items.add(SearchItem.Header(titles.contacts))
                 items.add(SearchItem.Permission(titles.permission))
             } else {
-                val isNumberQuery = q.length >= 3 && q.all { it.isDigit() || it in "+-() " }
+                val isNumberQuery = commandQuery == null && q.length >= 3 && q.all { it.isDigit() || it in "+-() " }
                 val digits = q.filter { it.isDigit() }
                 val matches = when {
                     q.isEmpty() -> contacts
@@ -455,6 +587,12 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     private fun submit(text: String) {
+        if (mode == SearchMode.CONTACTS_ONLY && ContactCommandQuery.parse(text) != null) {
+            commandJob?.cancel()
+            commandSubmitQuery = text
+            rebuild()
+            return
+        }
         val query = text.trim()
         if (mode.showsEngines) {
             SearchEngines.parseAliasQuery(engines, text)?.let { (engine, rest) ->
@@ -510,6 +648,14 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     override fun onContactClick(contact: Contact) {
+        if (mode == SearchMode.CONTACTS_ONLY && ContactCommandQuery.parse(currentQuery()) != null) {
+            executeContactCommand(contact)
+            return
+        }
+        openContactDetails(contact)
+    }
+
+    private fun openContactDetails(contact: Contact) {
         val uri = if (contact.lookupKey.isNotEmpty())
             ContactsContract.Contacts.getLookupUri(contact.id, contact.lookupKey)
         else ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, contact.id)
@@ -518,26 +664,32 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     override fun onContactTileClick(contact: Contact, anchor: View) {
-        showContactActions(contact, anchor)
+        if (mode == SearchMode.CONTACTS_ONLY && ContactCommandQuery.parse(currentQuery()) != null)
+            executeContactCommand(contact)
+        else showContactActions(contact, anchor)
     }
 
     override fun onContactLongClick(contact: Contact) {
-        onContactClick(contact)
+        cancelAutomaticCommand()
+        openContactDetails(contact)
     }
 
     override fun onContactCall(contact: Contact) {
+        cancelAutomaticCommand()
         val number = contact.number ?: return requireContext().showToast(R.string.no_phone_number)
         if (!startSafely(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null))))
             requireContext().showToast(R.string.unable_to_open_app)
     }
 
     override fun onContactText(contact: Contact) {
+        cancelAutomaticCommand()
         val number = contact.number ?: return requireContext().showToast(R.string.no_phone_number)
         if (!startSafely(Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", number, null))))
             requireContext().showToast(R.string.unable_to_open_app)
     }
 
     override fun onContactWhatsApp(contact: Contact) {
+        cancelAutomaticCommand()
         val digits = (contact.normalizedNumber ?: contact.number)?.filter { it.isDigit() }
         if (digits.isNullOrEmpty()) return requireContext().showToast(R.string.no_phone_number)
         val uri = Uri.parse("https://api.whatsapp.com/send?phone=$digits")
@@ -573,12 +725,33 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         searchTextView?.showKeyboard() ?: binding.search.showKeyboard()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (mode == SearchMode.CONTACTS_ONLY) rebuild()
+    }
+
+    override fun onPause() {
+        if (mode == SearchMode.CONTACTS_ONLY) {
+            cancelAutomaticCommand()
+        }
+        super.onPause()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("contactCommandQuery", commandSession.query)
+        outState.putBoolean("contactCommandConsumed", commandSession.consumed)
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onStop() {
         binding.search.hideKeyboard()
         super.onStop()
     }
 
     override fun onDestroyView() {
+        commandJob?.cancel()
+        commandExecutor?.cancel()
+        commandExecutor = null
         filterJob?.cancel()
         activePopupWindow?.dismiss()
         activePopupWindow = null

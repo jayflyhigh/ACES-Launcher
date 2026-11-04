@@ -95,6 +95,12 @@
         tools:layout="@layout/fragment_app_search_settings" />
 
     <fragment
+        android:id="@+id/contactSearchSettingsFragment"
+        android:name="app.olauncher.ui.search.ContactSearchSettingsFragment"
+        android:label="@string/contact_search_settings"
+        tools:layout="@layout/fragment_contact_search_settings" />
+
+    <fragment
         android:id="@+id/searchEnginesFragment"
         android:name="app.olauncher.ui.search.SearchEnginesFragment"
         android:label="SearchEnginesFragment"

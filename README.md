@@ -68,6 +68,41 @@ during startup; normal resume refreshes are retained.
 
 Developer: [@tanujnotes](https://x.com/tanujnotes)
 
+### Contact Search commands
+
+Only **C — Contact Search** recognizes `p name` (dialer), `m name` (SMS),
+`w name` (WhatsApp conversation), and `c name` (contact details). Commands are
+case-insensitive and require a space after the letter. Normal searching, tile
+layouts, long-press details, and existing shortcut buttons are unchanged.
+The existing Contacts title shows a compact command icon and name when enabled.
+
+Type at least two name characters and a unique match opens after 250 ms by
+default. Further typing, ambiguous results, loading contacts, composing text,
+or leaving the page cancels automatic execution. A command is handled once
+until the query changes, including across screen recreation and launcher returns.
+Tap a contact in either layout to select it immediately; Enter executes only a
+unique result. With automatic execution disabled, typing alone never launches.
+
+**ACES → C - Contact search settings → Contact Commands** controls automatic
+execution, remembered numbers, confirmation-protected clearing, the delay
+(250/500/750 ms), minimum name characters (2/3/4), and the indicator.
+Settings and separate Phone/SMS/WhatsApp number choices use existing preferences.
+Numbers are validated against the current contact before use; Android's preferred
+number is used unless a valid explicit choice is saved, otherwise multiple numbers
+are offered with their labels. Contact records are never modified.
+Phone opens the dialer without calling; SMS opens a composer without sending.
+WhatsApp uses a direct conversation link, with an explicit contact-details fallback
+when no installed WhatsApp app accepts it. WhatsApp itself validates account
+registration after opening; Android does not report that outcome back to ACES.
+WhatsApp commands require an international number (Android-normalized, `+`, or
+`00` country-code format); otherwise ACES offers contact details rather than
+guessing a country or silently opening a different action.
+
+Focused command tests cover parser cases, safeguards, intents, both tile layouts,
+phone selection and invalidation, merged/deleted contacts, permission and app
+failures, persistent settings, cancellation, and recreation on Android API 24/28.
+Run `./gradlew :app:testDebugUnitTest`.
+
 ##
 
 ### Other apps from team Olauncher:

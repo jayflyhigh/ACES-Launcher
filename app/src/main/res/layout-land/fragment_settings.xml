@@ -403,6 +403,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
                     android:paddingVertical="8dp"
+                    android:id="@+id/contactSearchSetting"
                     android:text="@string/contact_search_settings"
                     android:textColor="?attr/primaryColor" />
 

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/contactSettingsRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="?attr/primaryInverseColor"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            style="@style/AppSearchSettingLabel"
+            android:text="@string/contact_search_settings" />
+
+        <LinearLayout style="@style/AppSearchSettingsCard">
+            <TextView
+                style="@style/AppSearchSettingLabel"
+                android:text="@string/contact_commands" />
+            <TextView
+                style="@style/AppSearchSettingsHint"
+                android:text="@string/contact_commands_hint" />
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/automaticCommands"
+                style="@style/ContactCommandToggle"
+                android:text="@string/contact_command_automatic" />
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/rememberNumbers"
+                style="@style/ContactCommandToggle"
+                android:text="@string/contact_command_remember" />
+            <TextView
+                android:id="@+id/clearNumbers"
+                style="@style/ContactCommandToggle"
+                android:background="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:text="@string/contact_command_clear" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/AppSearchSettingsCard">
+            <TextView
+                style="@style/AppSearchSettingLabel"
+                android:text="@string/contact_command_delay" />
+            <RadioGroup
+                android:id="@+id/commandDelay"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <RadioButton
+                    android:id="@+id/delayFast"
+                    style="@style/ContactCommandToggle"
+                    android:text="@string/contact_command_fast" />
+                <RadioButton
+                    android:id="@+id/delayBalanced"
+                    style="@style/ContactCommandToggle"
+                    android:text="@string/contact_command_balanced" />
+                <RadioButton
+                    android:id="@+id/delayCautious"
+                    style="@style/ContactCommandToggle"
+                    android:text="@string/contact_command_cautious" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <LinearLayout style="@style/AppSearchSettingsCard">
+            <TextView
+                style="@style/AppSearchSettingLabel"
+                android:text="@string/contact_command_minimum" />
+            <RadioGroup
+                android:id="@+id/commandMinimum"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <RadioButton
+                    android:id="@+id/minimumTwo"
+                    style="@style/ContactCommandToggle" />
+                <RadioButton
+                    android:id="@+id/minimumThree"
+                    style="@style/ContactCommandToggle" />
+                <RadioButton
+                    android:id="@+id/minimumFour"
+                    style="@style/ContactCommandToggle" />
+            </RadioGroup>
+        </LinearLayout>
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/showCommandIndicator"
+            style="@style/ContactCommandToggle"
+            android:text="@string/contact_command_indicator" />
+    </LinearLayout>
+</ScrollView>

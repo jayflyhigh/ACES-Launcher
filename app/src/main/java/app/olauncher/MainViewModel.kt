@@ -63,6 +63,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val privateSpaceAvailable = MutableLiveData<Boolean>()
 
     val contacts = MutableLiveData<List<Contact>>()
+    val contactsLoading = MutableLiveData(false)
     private var contactsJob: Job? = null
 
     // Suppress backToHomeScreen during Private Space lock/unlock auth
@@ -112,12 +113,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadContacts() {
         if (!ContactsLoader.hasPermission(appContext)) {
+            contactsJob?.cancel()
+            contactsLoading.value = false
             contacts.value = emptyList()
             return
         }
         if (contactsJob?.isActive == true) return
+        contactsLoading.value = true
         contactsJob = viewModelScope.launch {
-            contacts.value = withContext(Dispatchers.IO) { ContactsLoader.load(appContext) }
+            try {
+                contacts.value = withContext(Dispatchers.IO) { ContactsLoader.load(appContext) }
+            } finally {
+                contactsLoading.value = false
+            }
         }
     }
 

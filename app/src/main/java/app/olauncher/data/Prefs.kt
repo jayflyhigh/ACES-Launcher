@@ -189,6 +189,42 @@ class Prefs(context: Context) {
         get() = prefs.getInt(DATE_TIME_VISIBILITY, Constants.DateTime.ON)
         set(value) = prefs.edit { putInt(DATE_TIME_VISIBILITY, value).apply() }
 
+    fun contactCommandSettings() = ContactCommandSettings(
+        automatic = prefs.getBoolean("CONTACT_COMMAND_AUTOMATIC", true),
+        rememberNumbers = prefs.getBoolean("CONTACT_COMMAND_REMEMBER", true),
+        delayMillis = prefs.getInt("CONTACT_COMMAND_DELAY", 250).takeIf { it in listOf(250, 500, 750) } ?: 250,
+        minimumCharacters = prefs.getInt("CONTACT_COMMAND_MINIMUM", 2).coerceIn(2, 4),
+        showIndicator = prefs.getBoolean("CONTACT_COMMAND_INDICATOR", true),
+    )
+
+    fun setContactCommandSettings(settings: ContactCommandSettings) {
+        require(settings.delayMillis in listOf(250, 500, 750))
+        require(settings.minimumCharacters in 2..4)
+        prefs.edit {
+            putBoolean("CONTACT_COMMAND_AUTOMATIC", settings.automatic)
+            putBoolean("CONTACT_COMMAND_REMEMBER", settings.rememberNumbers)
+            putInt("CONTACT_COMMAND_DELAY", settings.delayMillis)
+            putInt("CONTACT_COMMAND_MINIMUM", settings.minimumCharacters)
+            putBoolean("CONTACT_COMMAND_INDICATOR", settings.showIndicator)
+        }
+    }
+
+    fun rememberedContactNumber(lookupKey: String, command: ContactCommand): String? =
+        if (lookupKey.isEmpty()) null else prefs.getString("CONTACT_NUMBER_${command.name}|$lookupKey", null)
+
+    fun rememberContactNumber(lookupKey: String, command: ContactCommand, number: String?) {
+        if (lookupKey.isEmpty()) return
+        prefs.edit {
+            val key = "CONTACT_NUMBER_${command.name}|$lookupKey"
+            if (number == null) remove(key) else putString(key, number)
+        }
+    }
+
+    fun clearRememberedContactNumbers() {
+        val keys = prefs.all.keys.filter { it.startsWith("CONTACT_NUMBER_") }
+        prefs.edit { keys.forEach { remove(it) } }
+    }
+
     fun searchTileCount(mode: SearchMode): Int =
         prefs.getInt("SEARCH_TILE_COUNT_${mode.name}", 1).coerceIn(1, 2)
 

@@ -114,6 +114,7 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
             R.id.swipeRightApp -> showSwipeActionMenu(view, isLeft = false)
             R.id.searchEnginesSetting -> findNavController().navigate(R.id.action_settingsFragment_to_searchEnginesFragment)
             R.id.appSearchSetting -> findNavController().navigate(R.id.appSearchSettingsFragment)
+            R.id.contactSearchSetting -> findNavController().navigate(R.id.contactSearchSettingsFragment)
             R.id.globalAppearanceSetting -> findNavController().navigate(R.id.globalAppearanceFragment)
         }
     }
@@ -147,6 +148,7 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         binding.boldFont.setOnClickListener(this)
         binding.searchEnginesSetting.setOnClickListener(this)
         binding.appSearchSetting.setOnClickListener(this)
+        binding.contactSearchSetting.setOnClickListener(this)
         binding.globalAppearanceSetting.setOnClickListener(this)
 
         binding.dailyWallpaper.setOnLongClickListener(this)
