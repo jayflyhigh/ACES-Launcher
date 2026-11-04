@@ -11,10 +11,20 @@ private val separatorsRegex = Regex("[-_+,.`'\\s\\p{Z}]")
  * (diacritics stripped, separator characters removed) — e.g. "cafe" matches
  * "Café", and "googlemaps" matches "Google Maps".
  */
-fun appLabelMatches(appLabel: String, query: CharSequence): Boolean {
-    if (appLabel.contains(query.trim(), true)) return true
-    val normalizedQuery = query.normalizeForSearch()
-    return normalizedQuery.isNotEmpty() && appLabel.normalizeForSearch().contains(normalizedQuery, true)
+fun appLabelMatches(appLabel: String, query: CharSequence): Boolean =
+    AppSearchMatcher(query).matches(appLabel)
+
+/** Reuse for all labels in one filtering pass so the query is normalized only once. */
+class AppSearchMatcher(query: CharSequence) {
+    private val query = query.toString()
+    private val trimmedQuery = this.query.trim()
+    private val normalizedQuery by lazy(LazyThreadSafetyMode.NONE) { this.query.normalizeForSearch() }
+
+    fun matches(appLabel: String): Boolean {
+        if (appLabel.contains(trimmedQuery, true)) return true
+        return normalizedQuery.isNotEmpty() &&
+            appLabel.normalizeForSearch().contains(normalizedQuery, true)
+    }
 }
 
 private fun CharSequence.normalizeForSearch(): String =

@@ -1,10 +1,32 @@
 package app.olauncher.helper
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AppSearchMatcherTest {
+    @Test
+    fun `one matcher can be reused across a whole result set`() {
+        val labels = listOf("Camera", "Café", "Google Maps", "Google-Maps", "Sam's App", "")
+        val queries = listOf("cam", "CAMERA", "  cam  ", "cafe", "café", "googlemaps", "sams app", "", "   ", "---")
+        for (query in queries) {
+            val matcher = AppSearchMatcher(query)
+            for (label in labels) {
+                assertEquals(appLabelMatches(label, query), matcher.matches(label))
+            }
+        }
+    }
+
+    @Test
+    fun `matcher snapshots mutable query text`() {
+        val query = StringBuilder("cafe")
+        val matcher = AppSearchMatcher(query)
+        query.clear().append("camera")
+        assertTrue(matcher.matches("Café"))
+        assertFalse(matcher.matches("Camera"))
+    }
+
     @Test
     fun `exact case-insensitive substring matches`() {
         assertTrue(appLabelMatches("Camera", "cam"))

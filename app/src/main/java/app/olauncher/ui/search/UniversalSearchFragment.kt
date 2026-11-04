@@ -43,7 +43,7 @@ import app.olauncher.data.SearchMode
 import app.olauncher.databinding.FragmentUniversalSearchBinding
 import app.olauncher.databinding.PopupContactActionsBinding
 import app.olauncher.databinding.PopupSearchPageMenuBinding
-import app.olauncher.helper.appLabelMatches
+import app.olauncher.helper.AppSearchMatcher
 import app.olauncher.helper.getColorFromAttr
 import app.olauncher.helper.hideKeyboard
 import app.olauncher.helper.openAppInfo
@@ -52,6 +52,8 @@ import app.olauncher.helper.showToast
 import app.olauncher.ui.BaseFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
@@ -394,7 +396,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
 
     private class Titles(val apps: String, val contacts: String, val search: String, val permission: String)
 
-    private fun buildItems(
+    private suspend fun buildItems(
         query: String,
         apps: List<AppModel>,
         contacts: List<Contact>,
@@ -403,11 +405,16 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         titles: Titles,
     ): List<SearchItem> {
         val q = query.trim()
+        val matcher = AppSearchMatcher(q)
+        val coroutineContext = currentCoroutineContext()
         val showHeaders = mode == SearchMode.ALL_SEARCH
         val items = mutableListOf<SearchItem>()
 
         if (mode.showsApps) {
-            val matches = if (q.isEmpty()) apps else apps.filter { appLabelMatches(it.appLabel, q) }
+            val matches = if (q.isEmpty()) apps else apps.filter {
+                coroutineContext.ensureActive()
+                matcher.matches(it.appLabel)
+            }
             if (matches.isNotEmpty()) {
                 if (showHeaders) items.add(SearchItem.Header(titles.apps))
                 matches.mapTo(items) { SearchItem.App(it) }
@@ -423,8 +430,14 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 val digits = q.filter { it.isDigit() }
                 val matches = when {
                     q.isEmpty() -> contacts
-                    isNumberQuery -> contacts.filter { it.number?.filter(Char::isDigit)?.contains(digits) == true }
-                    else -> contacts.filter { appLabelMatches(it.name, q) }
+                    isNumberQuery -> contacts.filter {
+                        coroutineContext.ensureActive()
+                        it.number?.filter(Char::isDigit)?.contains(digits) == true
+                    }
+                    else -> contacts.filter {
+                        coroutineContext.ensureActive()
+                        matcher.matches(it.name)
+                    }
                 }
                 if (matches.isNotEmpty()) {
                     if (showHeaders) items.add(SearchItem.Header(titles.contacts))

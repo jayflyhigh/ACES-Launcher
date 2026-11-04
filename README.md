@@ -60,6 +60,12 @@ four preview pages and both tile layouts, restoring the screen, and checking the
 empty App Search Settings placeholder on Android API 24 and 28.
 Run them with `./gradlew :app:testDebugUnitTest`.
 
+App-drawer regression tests also cover asynchronous list updates, hiding apps,
+recycled rename controls, and normalized filtering on Android API 24 and 28.
+Search reuses query normalization across each result set and cancels superseded
+filtering work. App-list loading runs once on initial resume rather than twice
+during startup; normal resume refreshes are retained.
+
 Developer: [@tanujnotes](https://x.com/tanujnotes)
 
 ##

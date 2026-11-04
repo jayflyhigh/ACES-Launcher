@@ -106,7 +106,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         initObservers(viewModel)
-        viewModel.getAppList()
         registerShortcutCallback()
         setupOrientation()
 

@@ -190,14 +190,12 @@ class AppDrawerFragment : BaseFragment() {
                 }
                 viewModel.getAppList()
             },
-            appHideListener = { appModel, position ->
+            appHideListener = { appModel, _ ->
                 if (appModel is AppModel.PinnedShortcut) {
                     requireContext().showToast("Hiding pinned shortcuts is not supported")
                     return@AppDrawerAdapter
                 }
-                adapter.appFilteredList.removeAt(position)
-                adapter.notifyItemRemoved(position)
-                adapter.appsList.remove(appModel)
+                adapter.removeApp(appModel)
 
                 val newSet = mutableSetOf<String>()
                 newSet.addAll(prefs.hiddenApps)
