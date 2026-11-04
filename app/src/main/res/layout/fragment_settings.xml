@@ -399,7 +399,26 @@
                     android:layout_marginStart="8dp"
                     android:layout_marginTop="8dp"
                     android:layout_marginBottom="4dp"
-                    android:text="@string/search"
+                    android:text="@string/aces"
+                    android:textColor="?attr/primaryColor" />
+
+                <TextView
+                    style="@style/TextSmall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="12dp"
+                    android:paddingVertical="8dp"
+                    android:text="@string/app_search_settings"
+                    android:textColor="?attr/primaryColor" />
+
+                <TextView
+                    style="@style/TextSmall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:paddingVertical="8dp"
+                    android:text="@string/contact_search_settings"
                     android:textColor="?attr/primaryColor" />
 
                 <TextView
@@ -408,9 +427,17 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
-                    android:layout_marginTop="12dp"
                     android:paddingVertical="8dp"
-                    android:text="@string/search_engines"
+                    android:text="@string/search_engine_settings"
+                    android:textColor="?attr/primaryColor" />
+
+                <TextView
+                    style="@style/TextSmall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:paddingVertical="8dp"
+                    android:text="@string/search_everything_settings"
                     android:textColor="?attr/primaryColor" />
             </LinearLayout>
 

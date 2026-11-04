@@ -185,6 +185,11 @@
     <string name="search_engines_only">Search engines</string>
     <string name="search_everything">Search everything</string>
     <string name="search">Search</string>
+    <string name="aces">ACES</string>
+    <string name="app_search_settings">A - App search settings</string>
+    <string name="contact_search_settings">C - Contact search settings</string>
+    <string name="search_engine_settings">E - Search Engine settings</string>
+    <string name="search_everything_settings">S - Search everything settings</string>
 
     <!-- Search -->
     <string name="apps">Apps</string>
