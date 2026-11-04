@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Process
 import android.provider.Settings
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.View
@@ -25,9 +24,9 @@ import app.olauncher.MainViewModel
 import app.olauncher.R
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
+import app.olauncher.data.SearchMode
 import app.olauncher.databinding.DialogTextSizeBinding
 import app.olauncher.databinding.FragmentSettingsBinding
-import app.olauncher.helper.appUsagePermissionGranted
 import app.olauncher.helper.createDialog
 import app.olauncher.helper.getColorFromAttr
 import app.olauncher.helper.hideStatusBar
@@ -38,9 +37,7 @@ import app.olauncher.helper.isOlauncherDefault
 import app.olauncher.helper.isTablet
 import app.olauncher.helper.openAppInfo
 import app.olauncher.helper.openUrl
-import app.olauncher.helper.rateApp
 import app.olauncher.helper.setPlainWallpaper
-import app.olauncher.helper.shareApp
 import app.olauncher.helper.OlDialog
 import app.olauncher.helper.showPopupMenu
 import app.olauncher.helper.showStatusBar
@@ -56,7 +53,6 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
 
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
-    private val showPentastic = System.currentTimeMillis() % 2 == 0L
     private var dialog: OlDialog? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -76,10 +72,7 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         componentName = ComponentName(requireContext(), DeviceAdmin::class.java)
         checkAdminPermission()
 
-        binding.homeAppsNum.text = prefs.homeAppsNum.toString()
-        populateProMessage()
         populateKeyboardText()
-        populateScreenTimeOnOff()
         populateLockSettings()
         // Home button for recents feature disabled
         // populateHomeButtonRecents()
@@ -87,74 +80,36 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         populateAppThemeText()
         populateTextSize()
         populateBoldFont()
-        populateAlignment()
         populateStatusBar()
-        populateDateTime()
         populateSwipeApps()
-        populateActionHints()
         initClickListeners()
         initObservers()
-
-        if (showPentastic)
-            binding.footer.text = getText(R.string.new_app_minimal_todo_lists)
-
     }
 
     override fun onClick(view: View) {
         when (view.id) {
             R.id.olauncherHiddenApps -> showHiddenApps()
-            R.id.moreFeatures -> viewModel.showDialog.postValue(Constants.Dialog.PRO_MESSAGE)
-            R.id.screenTimeOnOff -> viewModel.showDialog.postValue(Constants.Dialog.DIGITAL_WELLBEING)
             R.id.appInfo -> openAppInfo(requireContext(), Process.myUserHandle(), BuildConfig.APPLICATION_ID)
             R.id.setLauncher -> viewModel.resetLauncherLiveData.call()
             R.id.toggleLock -> toggleLockMode()
             // Home button for recents feature disabled
             // R.id.homeButtonRecents -> toggleHomeButtonRecents()
             R.id.autoShowKeyboard -> toggleKeyboardText()
-            R.id.homeAppsNum -> showHomeAppsNumMenu(view)
             R.id.dailyWallpaperUrl -> requireContext().openUrl(prefs.dailyWallpaperUrl)
             R.id.dailyWallpaper -> toggleDailyWallpaperUpdate()
-            R.id.alignment -> showAlignmentMenu(view)
             R.id.statusBar -> toggleStatusBar()
-            R.id.dateTime -> showDateTimeMenu(view)
             R.id.appThemeText -> showAppThemeMenu(view, showSystem = false)
             R.id.textSizeValue -> showTextSizeDialog()
             R.id.boldFont -> toggleBoldFont()
 
-            R.id.swipeLeftApp -> showAppListIfEnabled(Constants.FLAG_SET_SWIPE_LEFT_APP)
-            R.id.swipeRightApp -> showAppListIfEnabled(Constants.FLAG_SET_SWIPE_RIGHT_APP)
+            R.id.swipeLeftApp -> showSwipeActionMenu(view, isLeft = true)
+            R.id.swipeRightApp -> showSwipeActionMenu(view, isLeft = false)
             R.id.searchEnginesSetting -> findNavController().navigate(R.id.action_settingsFragment_to_searchEnginesFragment)
-
-            R.id.aboutOlauncher -> {
-                prefs.aboutClicked = true
-                requireContext().openUrl(Constants.URL_ABOUT_OLAUNCHER)
-            }
-
-            R.id.share -> requireActivity().shareApp()
-            R.id.rate -> {
-                prefs.rateClicked = true
-                requireActivity().rateApp()
-            }
-
-            R.id.twitter -> requireContext().openUrl(Constants.URL_TWITTER_TANUJ)
-            R.id.github -> requireContext().openUrl(Constants.URL_OLAUNCHER_GITHUB)
-            R.id.privacy -> requireContext().openUrl(Constants.URL_OLAUNCHER_PRIVACY)
-            R.id.footer -> {
-                requireContext().openUrl(
-                    if (showPentastic) Constants.URL_PENTASTIC else Constants.URL_NTS
-                )
-            }
         }
     }
 
     override fun onLongClick(view: View): Boolean {
         when (view.id) {
-            R.id.alignment -> {
-                prefs.appLabelAlignment = prefs.homeAlignment
-                findNavController().navigate(R.id.action_settingsFragment_to_appListFragment)
-                requireContext().showToast(getString(R.string.alignment_changed))
-            }
-
             R.id.dailyWallpaper -> removeWallpaper()
             R.id.appThemeText -> showAppThemeMenu(view, showSystem = true)
             R.id.swipeLeftApp -> toggleSwipeLeft()
@@ -168,19 +123,13 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         binding.olauncherHiddenApps.setOnClickListener(this)
         binding.appInfo.setOnClickListener(this)
         binding.setLauncher.setOnClickListener(this)
-        binding.aboutOlauncher.setOnClickListener(this)
-        binding.moreFeatures.setOnClickListener(this)
         binding.autoShowKeyboard.setOnClickListener(this)
         binding.toggleLock.setOnClickListener(this)
         // Home button for recents feature disabled
         // binding.homeButtonRecents.setOnClickListener(this)
-        binding.homeAppsNum.setOnClickListener(this)
-        binding.screenTimeOnOff.setOnClickListener(this)
         binding.dailyWallpaperUrl.setOnClickListener(this)
         binding.dailyWallpaper.setOnClickListener(this)
-        binding.alignment.setOnClickListener(this)
         binding.statusBar.setOnClickListener(this)
-        binding.dateTime.setOnClickListener(this)
         binding.swipeLeftApp.setOnClickListener(this)
         binding.swipeRightApp.setOnClickListener(this)
         binding.appThemeText.setOnClickListener(this)
@@ -188,15 +137,7 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         binding.boldFont.setOnClickListener(this)
         binding.searchEnginesSetting.setOnClickListener(this)
 
-        binding.share.setOnClickListener(this)
-        binding.rate.setOnClickListener(this)
-        binding.twitter.setOnClickListener(this)
-        binding.github.setOnClickListener(this)
-        binding.privacy.setOnClickListener(this)
-        binding.footer.setOnClickListener(this)
-
         binding.dailyWallpaper.setOnLongClickListener(this)
-        binding.alignment.setOnLongClickListener(this)
         binding.appThemeText.setOnLongClickListener(this)
         binding.swipeLeftApp.setOnLongClickListener(this)
         binding.swipeRightApp.setOnLongClickListener(this)
@@ -204,18 +145,12 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
     }
 
     private fun initObservers() {
-        if (prefs.firstSettingsOpen) {
-            viewModel.showDialog.postValue(Constants.Dialog.ABOUT)
-            prefs.firstSettingsOpen = false
-        }
+        if (prefs.firstSettingsOpen) prefs.firstSettingsOpen = false
         viewModel.isOlauncherDefault.observe(viewLifecycleOwner) {
             if (it) {
                 binding.setLauncher.text = getString(R.string.change_default_launcher)
                 prefs.toShowHintCounter += 1
             }
-        }
-        viewModel.homeAppAlignment.observe(viewLifecycleOwner) {
-            populateAlignment()
         }
         viewModel.updateSwipeApps.observe(viewLifecycleOwner) {
             populateSwipeApps()
@@ -223,42 +158,6 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
     }
 
     // Popup menus
-
-    private fun showHomeAppsNumMenu(anchor: View) {
-        anchor.showPopupMenu(
-            configure = { menu ->
-                for (num in 0..8) menu.add(Menu.NONE, num, num, num.toString())
-            }
-        ) { item -> updateHomeAppsNum(item.itemId) }
-    }
-
-    private fun showDateTimeMenu(anchor: View) {
-        anchor.showPopupMenu(R.menu.date_time) { item ->
-            when (item.itemId) {
-                R.id.dateTimeOn -> toggleDateTime(Constants.DateTime.ON)
-                R.id.dateTimeOff -> toggleDateTime(Constants.DateTime.OFF)
-                R.id.dateOnly -> toggleDateTime(Constants.DateTime.DATE_ONLY)
-            }
-        }
-    }
-
-    private fun showAlignmentMenu(anchor: View) {
-        anchor.showPopupMenu(
-            R.menu.alignment,
-            configure = { menu ->
-                menu.findItem(R.id.alignmentBottom).setTitle(
-                    if (prefs.homeBottomAlignment) R.string.bottom_on else R.string.bottom_off
-                )
-            }
-        ) { item ->
-            when (item.itemId) {
-                R.id.alignmentLeft -> viewModel.updateHomeAlignment(Gravity.START)
-                R.id.alignmentCenter -> viewModel.updateHomeAlignment(Gravity.CENTER)
-                R.id.alignmentRight -> viewModel.updateHomeAlignment(Gravity.END)
-                R.id.alignmentBottom -> updateHomeBottomAlignment()
-            }
-        }
-    }
 
     // "System" stays hidden unless the row is long pressed
     private fun showAppThemeMenu(anchor: View, showSystem: Boolean) {
@@ -346,22 +245,6 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
             requireActivity().window.hideStatusBar()
             binding.statusBar.text = getString(R.string.off)
         }
-    }
-
-    private fun toggleDateTime(selected: Int) {
-        prefs.dateTimeVisibility = selected
-        populateDateTime()
-        viewModel.toggleDateTime()
-    }
-
-    private fun populateDateTime() {
-        binding.dateTime.text = getString(
-            when (prefs.dateTimeVisibility) {
-                Constants.DateTime.DATE_ONLY -> R.string.date
-                Constants.DateTime.ON -> R.string.on
-                else -> R.string.off
-            }
-        )
     }
 
     private fun showHiddenApps() {
@@ -455,12 +338,6 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
             requireContext().showToast(getString(R.string.your_wallpaper_will_update_shortly))
         else
             requireContext().showToast(getString(R.string.olauncher_is_not_default_launcher), Toast.LENGTH_LONG)
-    }
-
-    private fun updateHomeAppsNum(num: Int) {
-        binding.homeAppsNum.text = num.toString()
-        prefs.homeAppsNum = num
-        viewModel.refreshHome(true)
     }
 
     private var pendingTextSizeScale: Float = -1f
@@ -584,13 +461,6 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         binding.boldFont.text = getString(if (prefs.boldFont) R.string.on else R.string.off)
     }
 
-    private fun populateScreenTimeOnOff() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            if (requireContext().appUsagePermissionGranted()) binding.screenTimeOnOff.text = getString(R.string.on)
-            else binding.screenTimeOnOff.text = getString(R.string.off)
-        } else binding.screenTimeLayout.visibility = View.GONE
-    }
-
     private fun populateKeyboardText() {
         if (prefs.autoShowKeyboard) binding.autoShowKeyboard.text = getString(R.string.on)
         else binding.autoShowKeyboard.text = getString(R.string.off)
@@ -599,24 +469,6 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
     private fun populateWallpaperText() {
         if (prefs.dailyWallpaper) binding.dailyWallpaper.text = getString(R.string.on)
         else binding.dailyWallpaper.text = getString(R.string.off)
-    }
-
-    private fun updateHomeBottomAlignment() {
-        if (viewModel.isOlauncherDefault.value != true) {
-            requireContext().showToast(getString(R.string.please_set_olauncher_as_default_first), Toast.LENGTH_LONG)
-            return
-        }
-        prefs.homeBottomAlignment = !prefs.homeBottomAlignment
-        populateAlignment()
-        viewModel.updateHomeAlignment(prefs.homeAlignment)
-    }
-
-    private fun populateAlignment() {
-        when (prefs.homeAlignment) {
-            Gravity.START -> binding.alignment.text = getString(R.string.left)
-            Gravity.CENTER -> binding.alignment.text = getString(R.string.center)
-            Gravity.END -> binding.alignment.text = getString(R.string.right)
-        }
     }
 
     // Home button for recents feature disabled
@@ -651,8 +503,8 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
     }
 
     private fun populateSwipeApps() {
-        binding.swipeLeftApp.text = prefs.appNameSwipeLeft
-        binding.swipeRightApp.text = prefs.appNameSwipeRight
+        binding.swipeLeftApp.text = swipeActionLabel(prefs.swipeLeftSearchMode, prefs.appNameSwipeLeft)
+        binding.swipeRightApp.text = swipeActionLabel(prefs.swipeRightSearchMode, prefs.appNameSwipeRight)
         if (!prefs.swipeLeftEnabled)
             binding.swipeLeftApp.setTextColor(requireContext().getColorFromAttr(R.attr.primaryColorTrans50))
         if (!prefs.swipeRightEnabled)
@@ -681,19 +533,50 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         )
     }
 
-    private fun populateActionHints() {
-        if (prefs.aboutClicked.not())
-            binding.aboutOlauncher.setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_info, 0)
-        if (viewModel.isOlauncherDefault.value != true) return
-        if (prefs.rateClicked.not() && prefs.toShowHintCounter > Constants.HINT_RATE_US && prefs.toShowHintCounter < Constants.HINT_RATE_US + 100)
-            binding.rate.setCompoundDrawablesWithIntrinsicBounds(0, android.R.drawable.arrow_down_float, 0, 0)
+    private fun showSwipeActionMenu(anchor: View, isLeft: Boolean) {
+        val enabled = if (isLeft) prefs.swipeLeftEnabled else prefs.swipeRightEnabled
+        if (!enabled) {
+            requireContext().showToast(getString(R.string.long_press_to_enable))
+            return
+        }
+        anchor.showPopupMenu(
+            configure = { menu ->
+                menu.add(Menu.NONE, 0, 0, R.string.app)
+                SearchMode.entries.forEach { mode ->
+                    val title = when (mode) {
+                        SearchMode.APPS_ONLY -> R.string.search_apps_only
+                        SearchMode.CONTACTS_ONLY -> R.string.search_contacts_only
+                        SearchMode.ENGINES_ONLY -> R.string.search_engines_only
+                        SearchMode.ALL_SEARCH -> R.string.search_everything
+                    }
+                    menu.add(Menu.NONE, mode.ordinal + 1, mode.ordinal + 1, title)
+                }
+            }
+        ) { item ->
+            if (item.itemId == 0) {
+                showAppListIfEnabled(
+                    if (isLeft) Constants.FLAG_SET_SWIPE_LEFT_APP else Constants.FLAG_SET_SWIPE_RIGHT_APP
+                )
+            } else {
+                SearchMode.entries.getOrNull(item.itemId - 1)?.let { mode ->
+                    if (isLeft) prefs.swipeLeftSearchMode = mode.name
+                    else prefs.swipeRightSearchMode = mode.name
+                    populateSwipeApps()
+                }
+            }
+        }
     }
 
-    private fun populateProMessage() {
-        if (prefs.proMessageShown.not() && prefs.userState == Constants.UserState.SHARE) {
-            prefs.proMessageShown = true
-            viewModel.showDialog.postValue(Constants.Dialog.PRO_MESSAGE)
-        }
+    private fun swipeActionLabel(searchMode: String?, appName: String): String {
+        val mode = SearchMode.entries.firstOrNull { it.name == searchMode } ?: return appName
+        return getString(
+            when (mode) {
+                SearchMode.APPS_ONLY -> R.string.search_apps_only
+                SearchMode.CONTACTS_ONLY -> R.string.search_contacts_only
+                SearchMode.ENGINES_ONLY -> R.string.search_engines_only
+                SearchMode.ALL_SEARCH -> R.string.search_everything
+            }
+        )
     }
 
     override fun onDestroyView() {

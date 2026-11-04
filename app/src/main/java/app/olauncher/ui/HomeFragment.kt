@@ -30,6 +30,7 @@ import app.olauncher.R
 import app.olauncher.data.AppModel
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
+import app.olauncher.data.SearchMode
 import app.olauncher.databinding.FragmentHomeBinding
 import app.olauncher.helper.appUsagePermissionGranted
 import app.olauncher.helper.dpToPx
@@ -522,6 +523,10 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
     private fun openSwipeRightApp() {
         if (!prefs.swipeRightEnabled) return
+        SearchMode.entries.firstOrNull { it.name == prefs.swipeRightSearchMode }?.let {
+            openSwipeSearch(it)
+            return
+        }
         launchAppOrShortcut(
             appName = prefs.appNameSwipeRight,
             packageName = prefs.appPackageSwipeRight,
@@ -535,6 +540,10 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
     private fun openSwipeLeftApp() {
         if (!prefs.swipeLeftEnabled) return
+        SearchMode.entries.firstOrNull { it.name == prefs.swipeLeftSearchMode }?.let {
+            openSwipeSearch(it)
+            return
+        }
         launchAppOrShortcut(
             appName = prefs.appNameSwipeLeft,
             packageName = prefs.appPackageSwipeLeft,
@@ -543,6 +552,13 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
             isShortcut = prefs.isShortcutSwipeLeft,
             userString = prefs.appUserSwipeLeft,
             fallback = { openCameraApp(requireContext()) }
+        )
+    }
+
+    private fun openSwipeSearch(mode: SearchMode) {
+        findNavController().navigate(
+            R.id.action_mainFragment_to_universalSearchFragment,
+            bundleOf(Constants.Key.SEARCH_MODE to mode.name)
         )
     }
 

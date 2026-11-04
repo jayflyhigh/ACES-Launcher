@@ -303,6 +303,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             is AppModel.PrivateSpaceHeader -> return
             is AppModel.App -> {
                 if (isLeft) {
+                    prefs.swipeLeftSearchMode = null
                     prefs.appNameSwipeLeft = appModel.appLabel
                     prefs.appPackageSwipeLeft = appModel.appPackage
                     prefs.appUserSwipeLeft = appModel.user.toString()
@@ -310,6 +311,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     prefs.isShortcutSwipeLeft = false
                     prefs.shortcutIdSwipeLeft = ""
                 } else {
+                    prefs.swipeRightSearchMode = null
                     prefs.appNameSwipeRight = appModel.appLabel
                     prefs.appPackageSwipeRight = appModel.appPackage
                     prefs.appUserSwipeRight = appModel.user.toString()
@@ -321,6 +323,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             is AppModel.PinnedShortcut -> {
                 if (isLeft) {
+                    prefs.swipeLeftSearchMode = null
                     prefs.appNameSwipeLeft = appModel.appLabel
                     prefs.appPackageSwipeLeft = appModel.appPackage
                     prefs.appUserSwipeLeft = appModel.user.toString()
@@ -328,6 +331,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     prefs.isShortcutSwipeLeft = true
                     prefs.shortcutIdSwipeLeft = appModel.shortcutId
                 } else {
+                    prefs.swipeRightSearchMode = null
                     prefs.appNameSwipeRight = appModel.appLabel
                     prefs.appPackageSwipeRight = appModel.appPackage
                     prefs.appUserSwipeRight = appModel.user.toString()
