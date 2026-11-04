@@ -66,5 +66,5 @@
         android:background="?attr/selectableItemBackgroundBorderless"
         android:contentDescription="@string/whatsapp"
         android:padding="9dp"
-        android:src="@drawable/ic_chat" />
+        android:src="@drawable/ic_whatsapp" />
 </LinearLayout>
