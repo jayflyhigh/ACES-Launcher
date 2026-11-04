@@ -3,6 +3,7 @@ package app.olauncher.ui.search
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Gravity
@@ -189,8 +190,7 @@ class AppSearchSettingsFragment : BaseFragment() {
         previewAdapter.notifyItemRangeChanged(0, 2)
         binding.previewResults.requestLayout()
         previewPopupBinding?.let {
-            previewPopup?.setBackgroundDrawable(appearance.applyMenu(it))
-            previewPopup?.update()
+            appearance.applyMenu(it)
         }
     }
 
@@ -207,7 +207,9 @@ class AppSearchSettingsFragment : BaseFragment() {
             ViewGroup.LayoutParams.WRAP_CONTENT,
             false,
         )
-        popup.setBackgroundDrawable(appearance.applyMenu(menu))
+        appearance.applyMenu(menu)
+        // The content owns its colored drawable so color changes invalidate the visible view.
+        popup.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         // Keep this preview visible while touches and keyboard input reach the color controls.
         popup.isOutsideTouchable = false
         popup.inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
