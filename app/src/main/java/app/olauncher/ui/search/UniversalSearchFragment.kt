@@ -32,6 +32,7 @@ import androidx.recyclerview.widget.RecyclerView
 import app.olauncher.MainViewModel
 import app.olauncher.R
 import app.olauncher.data.AppModel
+import app.olauncher.data.AppSearchAppearance
 import app.olauncher.data.Constants
 import app.olauncher.data.Contact
 import app.olauncher.data.ContactsLoader
@@ -43,6 +44,7 @@ import app.olauncher.databinding.FragmentUniversalSearchBinding
 import app.olauncher.databinding.PopupContactActionsBinding
 import app.olauncher.databinding.PopupSearchPageMenuBinding
 import app.olauncher.helper.appLabelMatches
+import app.olauncher.helper.getColorFromAttr
 import app.olauncher.helper.hideKeyboard
 import app.olauncher.helper.openAppInfo
 import app.olauncher.helper.showKeyboard
@@ -145,7 +147,9 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private fun initRecyclerView() {
         searchTileCount = prefs.searchTileCount(mode)
         adapter = SearchResultsAdapter(prefs.appLabelAlignment, this, searchTileCount)
-        binding.recyclerView.layoutManager = GridLayoutManager(requireContext(), searchTileCount).apply {
+        binding.recyclerView.layoutManager = (if (mode == SearchMode.APPS_ONLY)
+            AppSearchLayoutManager(requireContext(), searchTileCount)
+        else GridLayoutManager(requireContext(), searchTileCount)).apply {
             spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int): Int =
                     when (adapter.currentList.getOrNull(position)) {
@@ -156,6 +160,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         }
         binding.recyclerView.adapter = adapter
         binding.recyclerView.itemAnimator = null
+        applyAppSearchAppearance()
         binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
                 if (newState == RecyclerView.SCROLL_STATE_DRAGGING) binding.search.hideKeyboard()
@@ -216,7 +221,9 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         updateTileCountControls(popupBinding)
         popupBinding.searchPageSettings.setOnClickListener {
             activePopupWindow?.dismiss()
-            if (mode == SearchMode.ENGINES_ONLY) {
+            if (mode == SearchMode.APPS_ONLY) {
+                findNavController().navigate(R.id.appSearchSettingsFragment)
+            } else if (mode == SearchMode.ENGINES_ONLY) {
                 findNavController().navigate(R.id.searchEnginesFragment)
             } else {
                 findNavController().navigate(
@@ -232,6 +239,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             if (searchTileCount < 2) updateSearchTileCount(searchTileCount + 1, popupBinding)
         }
         val popup = createPopup(popupBinding.root, 256, R.drawable.bg_quick_panel)
+        if (mode == SearchMode.APPS_ONLY)
+            popup.setBackgroundDrawable(prefs.appSearchAppearance(searchTileCount).applyMenu(popupBinding))
         showPopup(popup, binding.searchPageMenu, popupBinding.root, Gravity.END)
     }
 
@@ -257,10 +266,38 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         val firstVisibleOffset = firstVisibleView?.top ?: 0
         layoutManager.spanCount = newCount
         adapter.setTileCount(newCount)
+        applyAppSearchAppearance()
+        if (mode == SearchMode.APPS_ONLY) {
+            val background = prefs.appSearchAppearance(newCount).applyMenu(menuBinding)
+            activePopupWindow?.setBackgroundDrawable(background)
+            activePopupWindow?.update()
+        }
         adapter.notifyItemRangeChanged(0, adapter.itemCount)
         if (firstVisiblePosition != RecyclerView.NO_POSITION)
             layoutManager.scrollToPositionWithOffset(firstVisiblePosition, firstVisibleOffset)
         updateTileCountControls(menuBinding)
+    }
+
+    private fun applyAppSearchAppearance() {
+        if (mode != SearchMode.APPS_ONLY) return
+        val appearance = prefs.appSearchAppearance(searchTileCount)
+        binding.searchRoot.setBackgroundColor(
+            appearance.background(requireContext().getColorFromAttr(R.attr.primaryShadeDarkColor))
+        )
+        val foreground = if (appearance.backgroundColor != null)
+            contrastColor(appearance.backgroundColor)
+        else requireContext().getColorFromAttr(R.attr.primaryColor)
+        binding.modeTitle.setTextColor(foreground)
+        binding.searchPageMenu.imageTintList = android.content.res.ColorStateList.valueOf(foreground)
+        searchTextView?.setTextColor(foreground)
+        searchTextView?.setHintTextColor(foreground)
+        adapter.setAppAppearance(appearance)
+        val layoutManager = binding.recyclerView.layoutManager as AppSearchLayoutManager
+        val alignBottom = appearance.alignment == AppSearchAppearance.Alignment.BOTTOM
+        if (layoutManager.alignBottom != alignBottom) {
+            layoutManager.alignBottom = alignBottom
+            layoutManager.scrollToPositionWithOffset(0, 0)
+        }
     }
 
     private fun showContactActions(contact: Contact, anchor: View) {

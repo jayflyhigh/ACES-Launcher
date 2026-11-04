@@ -1,0 +1,55 @@
+<!-- English fallback labels remain localizable as translations are added. -->
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="app_search_choose_settings">Choose Settings</string>
+    <string name="app_search_tile_color">Change Color of Tiles</string>
+    <string name="app_search_menu_tile_color">Apply Tile Color to Three-Line Menu Tiles</string>
+    <string name="app_search_background_color">Change Color of Background and Transparency</string>
+    <string name="app_search_popup_color">Change Color of Popup Menu Background</string>
+    <string name="app_search_alignment">Change Alignment</string>
+    <string name="app_search_spacing">Change Spacing Between Tiles</string>
+    <string name="app_search_preview">Live Preview</string>
+    <string name="app_search_preview_menu">Preview popup menu</string>
+    <string name="app_search_transparency_value">Transparency: %1$d%%</string>
+    <string name="app_search_spacing_value">%1$d dp</string>
+    <string name="app_search_default_spacing">Default: 8 dp vertical, 10 dp horizontal</string>
+    <string name="app_search_red">Red</string>
+    <string name="app_search_green">Green</string>
+    <string name="app_search_blue">Blue</string>
+    <string name="app_search_hex">Hex color (#RRGGBB)</string>
+    <string name="app_search_invalid_color">Enter six hexadecimal digits, for example #336699.</string>
+    <string name="app_search_top">Top</string>
+    <string name="app_search_bottom">Bottom</string>
+    <string name="app_search_left">Left</string>
+    <string name="app_search_right">Right</string>
+    <string name="app_search_sample_settings">Settings</string>
+
+    <style name="AppSearchSettingLabel" parent="TextSmallBold">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">16dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+    </style>
+
+    <style name="AppSearchColorButton" parent="AppSearchSettingLabel">
+        <item name="android:background">@drawable/bg_quick_bar</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:gravity">center_vertical</item>
+    </style>
+
+    <style name="AppSearchColorChannel" parent="TextSmall">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:paddingTop">8dp</item>
+    </style>
+
+    <style name="AppSearchColorSlider" parent="">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:max">255</item>
+        <item name="android:progressTint">?attr/primaryColor</item>
+        <item name="android:thumbTint">?attr/primaryColor</item>
+    </style>
+</resources>

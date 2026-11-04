@@ -403,6 +403,7 @@
                     android:textColor="?attr/primaryColor" />
 
                 <TextView
+                    android:id="@+id/appSearchSetting"
                     style="@style/TextSmall"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

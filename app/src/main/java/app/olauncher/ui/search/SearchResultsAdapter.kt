@@ -14,6 +14,7 @@ import android.util.LruCache
 import android.util.TypedValue
 import android.view.View
 import app.olauncher.data.AppModel
+import app.olauncher.data.AppSearchAppearance
 import app.olauncher.data.Contact
 import app.olauncher.data.SearchEngine
 import app.olauncher.databinding.ItemSearchAppBinding
@@ -59,6 +60,11 @@ class SearchResultsAdapter(
     private val iconCache = LruCache<String, Drawable.ConstantState>(128)
     var tileCount: Int = tileCount
         private set
+    private var appAppearance: AppSearchAppearance? = null
+
+    fun setAppAppearance(appearance: AppSearchAppearance) {
+        appAppearance = appearance
+    }
 
     fun setTileCount(count: Int) {
         tileCount = count.coerceIn(1, 2)
@@ -96,16 +102,21 @@ class SearchResultsAdapter(
                         append(item.app.appLabel)
                         if (item.app.isNew) append(" ✦")
                     }
-                    gravity = labelGravity
                     alpha = 1f
-                    maxLines = if (tileCount == 2) 2 else 1
                 }
                 loadIcon(item.app)
-                val density = binding.root.resources.displayMetrics.density
-                val horizontalPadding = ((if (tileCount == 2) 12 else 24) * density).toInt()
-                binding.root.setPadding(horizontalPadding, 0, horizontalPadding, 0)
-                binding.itemIcon.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                    marginEnd = ((if (tileCount == 2) 8 else 16) * density).toInt()
+                val appearance = appAppearance
+                if (appearance != null) {
+                    appStyle.apply(appearance, tileCount, labelGravity)
+                } else {
+                    binding.itemTitle.gravity = labelGravity
+                    binding.itemTitle.maxLines = if (tileCount == 2) 2 else 1
+                    val density = binding.root.resources.displayMetrics.density
+                    val horizontalPadding = ((if (tileCount == 2) 12 else 24) * density).toInt()
+                    binding.root.setPadding(horizontalPadding, 0, horizontalPadding, 0)
+                    binding.itemIcon.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                        marginEnd = ((if (tileCount == 2) 8 else 16) * density).toInt()
+                    }
                 }
                 binding.root.setOnClickListener { actions.onAppClick(item.app) }
                 binding.root.setOnLongClickListener {
@@ -189,6 +200,7 @@ class SearchResultsAdapter(
 
     private class HeaderHolder(val binding: ItemSearchHeaderBinding) : RecyclerView.ViewHolder(binding.root)
     private inner class AppHolder(val binding: ItemSearchAppBinding) : RecyclerView.ViewHolder(binding.root) {
+        val appStyle by lazy { AppSearchTileStyle(binding) }
         var iconJob: Job? = null
 
         fun clearIcon() {

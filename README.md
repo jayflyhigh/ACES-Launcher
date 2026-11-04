@@ -24,6 +24,21 @@ Please check out the **[About](https://tanujnotes.substack.com/p/olauncher-minim
 
 License: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
+### ACES App Search appearance
+
+Open **ACES → A - App search settings** to customize App Search. The fixed preview
+uses two non-launching app results and includes a button to preview the existing
+three-line menu. Expand a color control to use RGB sliders or enter `#RRGGBB`.
+
+**Choose Settings** selects which layout to edit; it does not change the actual
+search layout. One- and two-column layouts independently remember tile colors,
+menu-tile color opt-in, page background and transparency, popup background,
+alignment, and spacing. The existing **Number of Tiles** menu selects the active
+search layout and its saved appearance. Unchanged settings retain themed defaults.
+Top/Bottom position short result lists within the results area; Left/Right align
+the app icon and name within the existing full-width tiles. Longer lists remain
+scrollable. These customizations apply only to App Search, not other search pages.
+
 Developer: [@tanujnotes](https://x.com/tanujnotes)
 
 ##

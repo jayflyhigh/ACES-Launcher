@@ -196,6 +196,19 @@ class Prefs(context: Context) {
         prefs.edit { putInt("SEARCH_TILE_COUNT_${mode.name}", value.coerceIn(1, 2)).apply() }
     }
 
+    fun appSearchAppearance(columns: Int): AppSearchAppearance =
+        AppSearchAppearance.load(columns) { key ->
+            if (prefs.contains(key)) prefs.getInt(key, 0) else null
+        }
+
+    fun setAppSearchAppearance(columns: Int, appearance: AppSearchAppearance) {
+        prefs.edit {
+            appearance.save(columns) { key, value ->
+                if (value == null) remove(key) else putInt(key, value)
+            }
+        }
+    }
+
     var swipeLeftEnabled: Boolean
         get() = prefs.getBoolean(SWIPE_LEFT_ENABLED, true)
         set(value) = prefs.edit { putBoolean(SWIPE_LEFT_ENABLED, value).apply() }

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:visibility="gone">
+
+    <TextView
+        style="@style/AppSearchColorChannel"
+        android:labelFor="@id/red"
+        android:text="@string/app_search_red" />
+
+    <SeekBar
+        android:id="@+id/red"
+        style="@style/AppSearchColorSlider"
+        android:contentDescription="@string/app_search_red" />
+
+    <TextView
+        style="@style/AppSearchColorChannel"
+        android:labelFor="@id/green"
+        android:text="@string/app_search_green" />
+
+    <SeekBar
+        android:id="@+id/green"
+        style="@style/AppSearchColorSlider"
+        android:contentDescription="@string/app_search_green" />
+
+    <TextView
+        style="@style/AppSearchColorChannel"
+        android:labelFor="@id/blue"
+        android:text="@string/app_search_blue" />
+
+    <SeekBar
+        android:id="@+id/blue"
+        style="@style/AppSearchColorSlider"
+        android:contentDescription="@string/app_search_blue" />
+
+    <EditText
+        android:id="@+id/hex"
+        style="@style/EngineEditField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/app_search_hex"
+        android:imeOptions="actionDone"
+        android:inputType="textVisiblePassword|textCapCharacters"
+        android:maxLength="7"
+        android:minHeight="48dp" />
+</LinearLayout>
