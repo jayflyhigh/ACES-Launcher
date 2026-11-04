@@ -94,6 +94,7 @@ class SearchResultsAdapter(
             is SearchItem.Header -> (holder as HeaderHolder).binding.headerTitle.apply {
                 text = item.title
                 gravity = labelGravity
+                appAppearance?.applyResultSurface(this, this)
             }
 
             is SearchItem.App -> (holder as AppHolder).apply {
@@ -133,6 +134,7 @@ class SearchResultsAdapter(
                     maxLines = 1
                 }
                 clearIcon()
+                appAppearance?.applyResultSurface(binding.root, binding.itemTitle)
                 binding.root.setOnClickListener { actions.onPermissionClick() }
                 binding.root.setOnLongClickListener(null)
             }
@@ -184,6 +186,7 @@ class SearchResultsAdapter(
                 contactCall.setOnClickListener { actions.onContactCall(contact) }
                 contactText.setOnClickListener { actions.onContactText(contact) }
                 contactWhatsApp.setOnClickListener { actions.onContactWhatsApp(contact) }
+                appAppearance?.applyResultSurface(root, contactName)
             }
 
             is SearchItem.Engine -> (holder as EngineHolder).binding.apply {
@@ -194,6 +197,7 @@ class SearchResultsAdapter(
                 root.setOnClickListener { actions.onEngineClick(item.engine) }
                 val sidePadding = ((if (tileCount == 2) 12 else 24) * root.resources.displayMetrics.density).toInt()
                 root.setPadding(sidePadding, 0, sidePadding, 0)
+                appAppearance?.applyResultSurface(root, engineName, engineAlias)
             }
         }
     }

@@ -83,6 +83,12 @@
         tools:layout="@layout/fragment_universal_search" />
 
     <fragment
+        android:id="@+id/globalAppearanceFragment"
+        android:name="app.olauncher.ui.search.GlobalAppearanceFragment"
+        android:label="@string/global_appearance"
+        tools:layout="@layout/fragment_global_appearance" />
+
+    <fragment
         android:id="@+id/appSearchSettingsFragment"
         android:name="app.olauncher.ui.search.AppSearchSettingsFragment"
         android:label="@string/app_search_settings"

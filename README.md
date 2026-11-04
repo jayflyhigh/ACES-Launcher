@@ -24,10 +24,14 @@ Please check out the **[About](https://tanujnotes.substack.com/p/olauncher-minim
 
 License: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
-### ACES App Search appearance
+### ACES Global Appearance
 
-Open **ACES → A - App search settings** to customize App Search. The fixed preview
-uses two non-launching app results and includes a button to preview the existing
+Open **ACES → Global Appearance** (the last ACES option) to customize all four
+search pages. **A - App search settings** is an empty placeholder for future settings.
+The selector above the fixed live preview switches between Apps, Contacts, Engines,
+and All without changing the actual search page or its tile count. Samples use the
+existing app, contact, engine, and category layouts without launching actions.
+The preview includes a button to preview the existing
 three-line menu. Settings are grouped into Layout Preview, Colors, Three-Line Menu,
 and Layout and Padding. Expand a color control to use the hue/saturation wheel,
 brightness slider, or enter `#RRGGBB`. Color swatches show the current selection.
@@ -40,14 +44,21 @@ result tile color, a separate Menu Tile Color control is available and saved.
 Left, right, top, and bottom results-area padding and spacing remain
 independently saved for each layout. Existing colors use the previously saved
 one-column value, falling back to the two-column value when unset.
-The settings screen has an opaque background; preview transparency does not affect
-the controls. The popup preview stays open while editing colors and closes with
+The controls have an opaque background; the live preview sits directly above the
+window wallpaper so increasing transparency reveals the current launcher background,
+including live wallpaper, without needing wallpaper access permissions.
+The popup preview stays open while editing colors and closes with
 its preview button or Back. The existing **Number of Tiles** menu selects the active
 search layout and its saved appearance. Unchanged settings retain themed defaults.
 Padding affects only the results area, not the search bar or tile interiors, and
 is limited on small screens to keep results usable. Alignment controls have been
-removed. Results remain scrollable. These customizations apply only to App Search,
-not other search pages.
+removed. Results remain scrollable. All appearance controls apply to Apps, Contacts,
+Engines, and Search Everything. Existing saved colors and layout values are retained.
+
+The Android-resource unit tests include opening Global Appearance, switching all
+four preview pages and both tile layouts, restoring the screen, and checking the
+empty App Search Settings placeholder on Android API 24 and 28.
+Run them with `./gradlew :app:testDebugUnitTest`.
 
 Developer: [@tanujnotes](https://x.com/tanujnotes)
 

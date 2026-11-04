@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/appSearchSettingsRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <TextView
+        style="@style/TextSmallBold"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/primaryInverseColor"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:text="@string/global_appearance" />
+
+    <RadioGroup
+        android:id="@+id/previewPage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/primaryInverseColor"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/previewApps"
+            style="@style/GlobalPreviewPage"
+            android:text="@string/preview_apps" />
+        <RadioButton
+            android:id="@+id/previewContacts"
+            style="@style/GlobalPreviewPage"
+            android:text="@string/preview_contacts" />
+        <RadioButton
+            android:id="@+id/previewEngines"
+            style="@style/GlobalPreviewPage"
+            android:text="@string/preview_engines" />
+        <RadioButton
+            android:id="@+id/previewEverything"
+            style="@style/GlobalPreviewPage"
+            android:text="@string/preview_everything" />
+    </RadioGroup>
+
+    <FrameLayout
+        android:id="@+id/preview"
+        android:layout_width="match_parent"
+        android:layout_height="200dp">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/previewResults"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="40dp"
+            android:clipToPadding="true" />
+
+        <TextView
+            android:id="@+id/previewTitle"
+            style="@style/TextSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="@string/app_search_preview" />
+
+        <ImageButton
+            android:id="@+id/previewMenu"
+            android:layout_width="48dp"
+            android:layout_height="40dp"
+            android:layout_gravity="end|top"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/app_search_preview_menu"
+            android:padding="10dp"
+            android:src="@drawable/ic_menu"
+            app:tint="?attr/primaryColor" />
+    </FrameLayout>
+
+    <ScrollView
+        android:id="@+id/settingsScroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="?attr/primaryInverseColor"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="16dp">
+
+            <LinearLayout style="@style/AppSearchSettingsCard">
+                <TextView
+                    style="@style/AppSearchSettingLabel"
+                    android:text="@string/app_search_choose_settings" />
+
+                <TextView
+                    style="@style/AppSearchSettingsHint"
+                    android:text="@string/app_search_choose_hint" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_quick_bar"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageButton
+                        android:id="@+id/decreaseLayout"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/decrease_tile_count"
+                        android:padding="12dp"
+                        android:src="@drawable/ic_remove"
+                        app:tint="?attr/primaryColor" />
+
+                    <TextView
+                        android:id="@+id/editingLayout"
+                        style="@style/TextSmall"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center"
+                        android:minHeight="48dp" />
+
+                    <ImageButton
+                        android:id="@+id/increaseLayout"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/increase_tile_count"
+                        android:padding="12dp"
+                        android:src="@drawable/ic_add"
+                        app:tint="?attr/primaryColor" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout style="@style/AppSearchSettingsCard">
+                <TextView
+                    style="@style/AppSearchSettingLabel"
+                    android:text="@string/app_search_colors_heading" />
+
+                <TextView
+                    style="@style/AppSearchSettingsHint"
+                    android:text="@string/app_search_colors_hint" />
+
+                <TextView
+                    android:id="@+id/tileColor"
+                    style="@style/AppSearchColorButton"
+                    android:text="@string/app_search_tile_color" />
+
+                <include
+                    android:id="@+id/tileColorPicker"
+                    layout="@layout/view_app_search_color_picker" />
+
+                <TextView
+                    android:id="@+id/backgroundColor"
+                    style="@style/AppSearchColorButton"
+                    android:text="@string/app_search_background_color" />
+
+                <include
+                    android:id="@+id/backgroundColorPicker"
+                    layout="@layout/view_app_search_color_picker" />
+
+                <TextView
+                    android:id="@+id/transparencyValue"
+                    style="@style/TextSmall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:paddingTop="8dp"
+                    android:text="@string/app_search_background_color"
+                    android:labelFor="@id/transparency" />
+
+                <SeekBar
+                    android:id="@+id/transparency"
+                    style="@style/AppSearchColorSlider"
+                    android:max="100"
+                    android:contentDescription="@string/app_search_background_color" />
+            </LinearLayout>
+
+            <LinearLayout style="@style/AppSearchSettingsCard">
+                <TextView
+                    style="@style/AppSearchSettingLabel"
+                    android:text="@string/app_search_menu_heading" />
+
+                <TextView
+                    android:id="@+id/popupColor"
+                    style="@style/AppSearchColorButton"
+                    android:text="@string/app_search_popup_color" />
+
+                <include
+                    android:id="@+id/popupColorPicker"
+                    layout="@layout/view_app_search_color_picker" />
+
+                <androidx.appcompat.widget.AppCompatCheckBox
+                    android:id="@+id/applyColorToMenu"
+                    style="@style/TextSmall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:text="@string/app_search_menu_tile_color" />
+
+                <TextView
+                    android:id="@+id/menuTileColor"
+                    style="@style/AppSearchColorButton"
+                    android:text="@string/app_search_independent_menu_color" />
+
+                <include
+                    android:id="@+id/menuTileColorPicker"
+                    layout="@layout/view_app_search_color_picker" />
+            </LinearLayout>
+
+            <LinearLayout style="@style/AppSearchSettingsCard">
+                <TextView
+                    style="@style/AppSearchSettingLabel"
+                    android:text="@string/app_search_layout_heading" />
+
+                <TextView
+                    style="@style/AppSearchSettingsHint"
+                    android:text="@string/app_search_layout_hint" />
+
+                <TextView
+                    android:id="@+id/paddingLeftValue"
+                    style="@style/AppSearchColorChannel"
+                    android:labelFor="@id/paddingLeft"
+                    android:text="@string/app_search_left" />
+                <SeekBar
+                    android:id="@+id/paddingLeft"
+                    style="@style/AppSearchColorSlider"
+                    android:max="64"
+                    android:contentDescription="@string/app_search_left" />
+
+                <TextView
+                    android:id="@+id/paddingRightValue"
+                    style="@style/AppSearchColorChannel"
+                    android:labelFor="@id/paddingRight"
+                    android:text="@string/app_search_right" />
+                <SeekBar
+                    android:id="@+id/paddingRight"
+                    style="@style/AppSearchColorSlider"
+                    android:max="64"
+                    android:contentDescription="@string/app_search_right" />
+
+                <TextView
+                    android:id="@+id/paddingTopValue"
+                    style="@style/AppSearchColorChannel"
+                    android:labelFor="@id/paddingTop"
+                    android:text="@string/app_search_top" />
+                <SeekBar
+                    android:id="@+id/paddingTop"
+                    style="@style/AppSearchColorSlider"
+                    android:max="64"
+                    android:contentDescription="@string/app_search_top" />
+
+                <TextView
+                    android:id="@+id/paddingBottomValue"
+                    style="@style/AppSearchColorChannel"
+                    android:labelFor="@id/paddingBottom"
+                    android:text="@string/app_search_bottom" />
+                <SeekBar
+                    android:id="@+id/paddingBottom"
+                    style="@style/AppSearchColorSlider"
+                    android:max="64"
+                    android:contentDescription="@string/app_search_bottom" />
+
+                <TextView
+                    style="@style/AppSearchSettingLabel"
+                    android:text="@string/app_search_spacing" />
+
+                <TextView
+                    android:id="@+id/spacingValue"
+                    style="@style/TextSmall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/app_search_spacing"
+                    android:labelFor="@id/spacing" />
+
+                <SeekBar
+                    android:id="@+id/spacing"
+                    style="@style/AppSearchColorSlider"
+                    android:max="32"
+                    android:contentDescription="@string/app_search_spacing" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

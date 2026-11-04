@@ -8,6 +8,7 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.view.updateLayoutParams
@@ -83,13 +84,24 @@ internal class AppSearchTileStyle(private val binding: ItemSearchAppBinding) {
         itemTitle.setTextColor(Color.WHITE)
         itemTitle.setShadowLayer(defaultShadowRadius, defaultShadowDx, defaultShadowDy, defaultShadowColor)
         itemTitle.gravity = labelGravity
-        val gap = appearance.spacingDp?.let { (it * density).roundToInt() }
-        root.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-            leftMargin = gap?.div(2) ?: (5 * density).roundToInt()
-            rightMargin = gap?.let { it - it / 2 } ?: (5 * density).roundToInt()
-            topMargin = gap?.div(2) ?: (4 * density).roundToInt()
-            bottomMargin = gap?.let { it - it / 2 } ?: (4 * density).roundToInt()
-        }
+        appearance.applyResultSpacing(root)
+    }
+}
+
+internal fun AppSearchAppearance.applyResultSurface(view: View, vararg labels: TextView) {
+    view.background = view.context.appSearchSurface(R.drawable.bg_search_result, tileColor)
+    labels.forEach { it.setTextColor(Color.WHITE) }
+    applyResultSpacing(view)
+}
+
+private fun AppSearchAppearance.applyResultSpacing(view: View) {
+    val density = view.resources.displayMetrics.density
+    val gap = spacingDp?.let { (it * density).roundToInt() }
+    view.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+        leftMargin = gap?.div(2) ?: (5 * density).roundToInt()
+        rightMargin = gap?.let { it - it / 2 } ?: (5 * density).roundToInt()
+        topMargin = gap?.div(2) ?: (4 * density).roundToInt()
+        bottomMargin = gap?.let { it - it / 2 } ?: (4 * density).roundToInt()
     }
 }
 

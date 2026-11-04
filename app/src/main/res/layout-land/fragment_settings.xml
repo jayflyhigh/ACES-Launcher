@@ -424,6 +424,17 @@
                     android:paddingVertical="8dp"
                     android:text="@string/search_everything_settings"
                     android:textColor="?attr/primaryColor" />
+
+                <TextView
+                    android:id="@+id/globalAppearanceSetting"
+                    style="@style/TextSmall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:text="@string/global_appearance"
+                    android:textColor="?attr/primaryColor" />
             </LinearLayout>
 
         </LinearLayout>

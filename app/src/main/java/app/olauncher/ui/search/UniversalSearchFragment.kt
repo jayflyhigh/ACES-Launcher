@@ -160,7 +160,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         binding.recyclerView.adapter = adapter
         binding.recyclerView.itemAnimator = null
         applyAppSearchAppearance()
-        if (mode == SearchMode.APPS_ONLY) binding.recyclerView.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+        binding.recyclerView.addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
             appAppearance?.applyResultsPadding(view, searchTileCount)
         }
         binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
@@ -241,8 +241,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             if (searchTileCount < 2) updateSearchTileCount(searchTileCount + 1, popupBinding)
         }
         val popup = createPopup(popupBinding.root, 256, R.drawable.bg_quick_panel)
-        if (mode == SearchMode.APPS_ONLY)
-            popup.setBackgroundDrawable(prefs.appSearchAppearance(searchTileCount).applyMenu(popupBinding))
+        prefs.appSearchAppearance(searchTileCount).applyMenu(popupBinding)
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
         showPopup(popup, binding.searchPageMenu, popupBinding.root, Gravity.END)
     }
 
@@ -269,11 +269,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         layoutManager.spanCount = newCount
         adapter.setTileCount(newCount)
         applyAppSearchAppearance()
-        if (mode == SearchMode.APPS_ONLY) {
-            val background = prefs.appSearchAppearance(newCount).applyMenu(menuBinding)
-            activePopupWindow?.setBackgroundDrawable(background)
-            activePopupWindow?.update()
-        }
+        prefs.appSearchAppearance(newCount).applyMenu(menuBinding)
         adapter.notifyItemRangeChanged(0, adapter.itemCount)
         if (firstVisiblePosition != RecyclerView.NO_POSITION)
             layoutManager.scrollToPositionWithOffset(firstVisiblePosition, firstVisibleOffset)
@@ -281,7 +277,6 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     private fun applyAppSearchAppearance() {
-        if (mode != SearchMode.APPS_ONLY) return
         val appearance = prefs.appSearchAppearance(searchTileCount)
         appAppearance = appearance
         binding.searchRoot.setBackgroundColor(
