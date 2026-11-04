@@ -6,10 +6,13 @@ import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import android.util.LruCache
+import android.util.TypedValue
+import android.view.View
 import app.olauncher.data.AppModel
 import app.olauncher.data.Contact
 import app.olauncher.data.SearchEngine
@@ -37,6 +40,8 @@ interface SearchActions {
     fun onAppClick(app: AppModel)
     fun onAppLongClick(app: AppModel)
     fun onContactClick(contact: Contact)
+    fun onContactTileClick(contact: Contact, anchor: View)
+    fun onContactLongClick(contact: Contact)
     fun onContactCall(contact: Contact)
     fun onContactText(contact: Contact)
     fun onContactWhatsApp(contact: Contact)
@@ -47,10 +52,17 @@ interface SearchActions {
 class SearchResultsAdapter(
     private val labelGravity: Int,
     private val actions: SearchActions,
+    tileCount: Int,
 ) : ListAdapter<SearchItem, RecyclerView.ViewHolder>(DIFF) {
 
     private val iconScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val iconCache = LruCache<String, Drawable.ConstantState>(128)
+    var tileCount: Int = tileCount
+        private set
+
+    fun setTileCount(count: Int) {
+        tileCount = count.coerceIn(1, 2)
+    }
 
     fun close() = iconScope.cancel()
 
@@ -78,38 +90,86 @@ class SearchResultsAdapter(
                 gravity = labelGravity
             }
 
-            is SearchItem.App -> (holder as AppHolder).binding.itemTitle.apply {
-                text = buildString {
-                    append(item.app.appLabel)
-                    if (item.app.isNew) append(" ✦")
+            is SearchItem.App -> (holder as AppHolder).apply {
+                binding.itemTitle.apply {
+                    text = buildString {
+                        append(item.app.appLabel)
+                        if (item.app.isNew) append(" ✦")
+                    }
+                    gravity = labelGravity
+                    alpha = 1f
+                    maxLines = if (tileCount == 2) 2 else 1
                 }
-                gravity = labelGravity
-                alpha = 1f
-                (holder as AppHolder).loadIcon(item.app)
-                setOnClickListener { actions.onAppClick(item.app) }
-                setOnLongClickListener {
+                loadIcon(item.app)
+                val density = binding.root.resources.displayMetrics.density
+                val horizontalPadding = ((if (tileCount == 2) 12 else 24) * density).toInt()
+                binding.root.setPadding(horizontalPadding, 0, horizontalPadding, 0)
+                binding.itemIcon.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                    marginEnd = ((if (tileCount == 2) 8 else 16) * density).toInt()
+                }
+                binding.root.setOnClickListener { actions.onAppClick(item.app) }
+                binding.root.setOnLongClickListener {
                     actions.onAppLongClick(item.app)
                     true
                 }
             }
 
-            is SearchItem.Permission -> (holder as AppHolder).binding.itemTitle.apply {
-                text = item.label
-                gravity = labelGravity
-                alpha = 0.6f
-                (holder as AppHolder).clearIcon()
-                setOnClickListener { actions.onPermissionClick() }
-                setOnLongClickListener(null)
+            is SearchItem.Permission -> (holder as AppHolder).apply {
+                binding.itemTitle.apply {
+                    text = item.label
+                    gravity = labelGravity
+                    alpha = 0.6f
+                    maxLines = 1
+                }
+                clearIcon()
+                binding.root.setOnClickListener { actions.onPermissionClick() }
+                binding.root.setOnLongClickListener(null)
             }
 
             is SearchItem.ContactItem -> (holder as ContactHolder).binding.apply {
                 val contact = item.contact
-                val hasNumber = !contact.number.isNullOrBlank()
                 contactName.text = contact.name
-                contactMain.setOnClickListener { actions.onContactClick(contact) }
-                contactCall.isVisible = hasNumber
-                contactText.isVisible = hasNumber
-                contactWhatsApp.isVisible = hasNumber
+                val tileLayout = tileCount == 2
+                contactIcon.isVisible = !tileLayout
+                contactName.apply {
+                    gravity = if (tileLayout) android.view.Gravity.CENTER else labelGravity
+                    maxLines = if (tileLayout) Int.MAX_VALUE else 1
+                    ellipsize = if (tileLayout) null else android.text.TextUtils.TruncateAt.END
+                    val sidePadding = ((if (tileLayout) 8 else 12) * root.resources.displayMetrics.density).toInt()
+                    setPadding(sidePadding, paddingTop, sidePadding, paddingBottom)
+                }
+                contactCall.isVisible = !tileLayout && !contact.number.isNullOrBlank()
+                contactText.isVisible = !tileLayout && !contact.number.isNullOrBlank()
+                contactWhatsApp.isVisible = !tileLayout && !contact.number.isNullOrBlank()
+                if (tileLayout) {
+                    contactMain.background = null
+                    // Clearing a listener makes a View clickable, even when the listener is null.
+                    contactMain.setOnClickListener(null)
+                    contactMain.isClickable = false
+                    contactMain.isLongClickable = false
+                    contactMain.isFocusable = false
+                    root.setOnClickListener { actions.onContactTileClick(contact, root) }
+                    root.setOnLongClickListener {
+                        actions.onContactLongClick(contact)
+                        true
+                    }
+                } else {
+                    val selectableBackground = TypedValue()
+                    if (root.context.theme.resolveAttribute(
+                            android.R.attr.selectableItemBackground,
+                            selectableBackground,
+                            true,
+                        )
+                    ) {
+                        contactMain.setBackgroundResource(selectableBackground.resourceId)
+                    }
+                    contactMain.isClickable = true
+                    contactMain.setOnClickListener { actions.onContactClick(contact) }
+                    root.setOnClickListener(null)
+                    root.setOnLongClickListener(null)
+                    root.isClickable = false
+                    root.isLongClickable = false
+                }
                 contactCall.setOnClickListener { actions.onContactCall(contact) }
                 contactText.setOnClickListener { actions.onContactText(contact) }
                 contactWhatsApp.setOnClickListener { actions.onContactWhatsApp(contact) }
@@ -117,9 +177,12 @@ class SearchResultsAdapter(
 
             is SearchItem.Engine -> (holder as EngineHolder).binding.apply {
                 engineName.text = item.engine.name
+                engineName.maxLines = if (tileCount == 2) 2 else 1
                 engineAlias.text = item.engine.alias
                 engineAlias.alpha = if (item.matched) 1f else 0.5f
                 root.setOnClickListener { actions.onEngineClick(item.engine) }
+                val sidePadding = ((if (tileCount == 2) 12 else 24) * root.resources.displayMetrics.density).toInt()
+                root.setPadding(sidePadding, 0, sidePadding, 0)
             }
         }
     }

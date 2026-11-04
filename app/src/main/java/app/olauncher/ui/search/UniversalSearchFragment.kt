@@ -9,20 +9,25 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract
 import android.text.Spannable
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.TextView
+import android.widget.PopupWindow
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.SearchView
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import app.olauncher.MainViewModel
 import app.olauncher.R
@@ -35,6 +40,8 @@ import app.olauncher.data.SearchEngine
 import app.olauncher.data.SearchEngines
 import app.olauncher.data.SearchMode
 import app.olauncher.databinding.FragmentUniversalSearchBinding
+import app.olauncher.databinding.PopupContactActionsBinding
+import app.olauncher.databinding.PopupSearchPageMenuBinding
 import app.olauncher.helper.appLabelMatches
 import app.olauncher.helper.hideKeyboard
 import app.olauncher.helper.openAppInfo
@@ -67,6 +74,14 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private var permissionRequested = false
     private var searchTextView: TextView? = null
     private var autoLaunchedQuery: String? = null
+    private var searchTileCount = 1
+    private var activePopupWindow: PopupWindow? = null
+
+    private val popupBackCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            activePopupWindow?.dismiss()
+        }
+    }
 
     private val contactsPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.loadContacts()
@@ -83,6 +98,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         super.onViewCreated(view, savedInstanceState)
         prefs = Prefs(requireContext())
         mode = SearchMode.from(arguments?.getString(Constants.Key.SEARCH_MODE))
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, popupBackCallback)
 
         initSearchView()
         initRecyclerView()
@@ -123,11 +139,21 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 return true
             }
         })
+        binding.searchPageMenu.setOnClickListener { toggleSearchPageMenu() }
     }
 
     private fun initRecyclerView() {
-        adapter = SearchResultsAdapter(prefs.appLabelAlignment, this)
-        binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        searchTileCount = prefs.searchTileCount(mode)
+        adapter = SearchResultsAdapter(prefs.appLabelAlignment, this, searchTileCount)
+        binding.recyclerView.layoutManager = GridLayoutManager(requireContext(), searchTileCount).apply {
+            spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
+                override fun getSpanSize(position: Int): Int =
+                    when (adapter.currentList.getOrNull(position)) {
+                        is SearchItem.Header, is SearchItem.Permission -> spanCount
+                        else -> 1
+                    }
+            }
+        }
         binding.recyclerView.adapter = adapter
         binding.recyclerView.itemAnimator = null
         binding.recyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
@@ -179,6 +205,121 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             }
             viewModel.loadContacts()
         }
+    }
+
+    private fun toggleSearchPageMenu() {
+        activePopupWindow?.let {
+            it.dismiss()
+            return
+        }
+        val popupBinding = PopupSearchPageMenuBinding.inflate(layoutInflater)
+        updateTileCountControls(popupBinding)
+        popupBinding.searchPageSettings.setOnClickListener {
+            activePopupWindow?.dismiss()
+            if (mode == SearchMode.ENGINES_ONLY) {
+                findNavController().navigate(R.id.searchEnginesFragment)
+            } else {
+                findNavController().navigate(
+                    R.id.settingsFragment,
+                    Bundle().apply { putBoolean(Constants.Key.OPEN_ACES_SETTINGS, true) }
+                )
+            }
+        }
+        popupBinding.decreaseTileCount.setOnClickListener {
+            if (searchTileCount > 1) updateSearchTileCount(searchTileCount - 1, popupBinding)
+        }
+        popupBinding.increaseTileCount.setOnClickListener {
+            if (searchTileCount < 2) updateSearchTileCount(searchTileCount + 1, popupBinding)
+        }
+        val popup = createPopup(popupBinding.root, 256, R.drawable.bg_quick_panel)
+        showPopup(popup, binding.searchPageMenu, popupBinding.root, Gravity.END)
+    }
+
+    private fun updateTileCountControls(binding: PopupSearchPageMenuBinding) {
+        binding.tileCount.setText(
+            if (searchTileCount == 1) R.string.one_tile_across else R.string.two_tiles_across
+        )
+        binding.decreaseTileCount.isEnabled = searchTileCount > 1
+        binding.decreaseTileCount.alpha = if (searchTileCount > 1) 1f else 0.45f
+        binding.increaseTileCount.isEnabled = searchTileCount < 2
+        binding.increaseTileCount.alpha = if (searchTileCount < 2) 1f else 0.45f
+    }
+
+    private fun updateSearchTileCount(count: Int, menuBinding: PopupSearchPageMenuBinding) {
+        val newCount = count.coerceIn(1, 2)
+        if (newCount == searchTileCount) return
+        searchTileCount = newCount
+        prefs.setSearchTileCount(mode, newCount)
+
+        val layoutManager = binding.recyclerView.layoutManager as GridLayoutManager
+        val firstVisiblePosition = layoutManager.findFirstVisibleItemPosition()
+        val firstVisibleView = layoutManager.findViewByPosition(firstVisiblePosition)
+        val firstVisibleOffset = firstVisibleView?.top ?: 0
+        layoutManager.spanCount = newCount
+        adapter.setTileCount(newCount)
+        adapter.notifyItemRangeChanged(0, adapter.itemCount)
+        if (firstVisiblePosition != RecyclerView.NO_POSITION)
+            layoutManager.scrollToPositionWithOffset(firstVisiblePosition, firstVisibleOffset)
+        updateTileCountControls(menuBinding)
+    }
+
+    private fun showContactActions(contact: Contact, anchor: View) {
+        activePopupWindow?.dismiss()
+        val actions = PopupContactActionsBinding.inflate(layoutInflater)
+        val popup = createPopup(actions.root, 160, R.drawable.bg_search_result, heightDp = 56)
+        actions.contactCallAction.setOnClickListener {
+            popup.dismiss()
+            onContactCall(contact)
+        }
+        actions.contactTextAction.setOnClickListener {
+            popup.dismiss()
+            onContactText(contact)
+        }
+        actions.contactWhatsAppAction.setOnClickListener {
+            popup.dismiss()
+            onContactWhatsApp(contact)
+        }
+        val xOffset = (anchor.width - popup.width) / 2
+        val yOffset = -((anchor.height + popup.height) / 2)
+        showPopup(popup, anchor, actions.root, Gravity.LEFT, yOffset, xOffset)
+    }
+
+    private fun createPopup(content: View, widthDp: Int, background: Int, heightDp: Int? = null): PopupWindow {
+        val density = resources.displayMetrics.density
+        val maxWidth = (resources.displayMetrics.widthPixels - 24 * density).toInt().coerceAtLeast(1)
+        return PopupWindow(
+            content,
+            minOf((widthDp * density).toInt(), maxWidth),
+            heightDp?.let { (it * density).toInt() } ?: ViewGroup.LayoutParams.WRAP_CONTENT,
+            true,
+        ).apply {
+            setBackgroundDrawable(ContextCompat.getDrawable(requireContext(), background))
+            isOutsideTouchable = true
+            inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
+            softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+            elevation = 8 * density
+            setOnDismissListener {
+                if (activePopupWindow === this) activePopupWindow = null
+                popupBackCallback.isEnabled = activePopupWindow?.isShowing == true
+            }
+        }
+    }
+
+    private fun showPopup(
+        popup: PopupWindow,
+        anchor: View,
+        content: View,
+        gravity: Int,
+        yOffset: Int = 0,
+        xOffset: Int = 0,
+    ) {
+        activePopupWindow?.dismiss()
+        activePopupWindow = popup
+        popupBackCallback.isEnabled = true
+        content.alpha = 0f
+        content.translationY = -8 * resources.displayMetrics.density
+        popup.showAsDropDown(anchor, xOffset, yOffset, gravity)
+        content.animate().alpha(1f).translationY(0f).setDuration(120).start()
     }
 
     private fun currentQuery() = _binding?.search?.query?.toString().orEmpty()
@@ -333,6 +474,14 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             requireContext().showToast(R.string.unable_to_open_contact)
     }
 
+    override fun onContactTileClick(contact: Contact, anchor: View) {
+        showContactActions(contact, anchor)
+    }
+
+    override fun onContactLongClick(contact: Contact) {
+        onContactClick(contact)
+    }
+
     override fun onContactCall(contact: Contact) {
         val number = contact.number ?: return requireContext().showToast(R.string.no_phone_number)
         if (!startSafely(Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", number, null))))
@@ -388,6 +537,9 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
 
     override fun onDestroyView() {
         filterJob?.cancel()
+        activePopupWindow?.dismiss()
+        activePopupWindow = null
+        popupBackCallback.isEnabled = false
         searchTextView = null
         if (::adapter.isInitialized) adapter.close()
         super.onDestroyView()

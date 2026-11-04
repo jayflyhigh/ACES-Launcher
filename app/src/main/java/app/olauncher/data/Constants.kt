@@ -6,6 +6,7 @@ object Constants {
         const val FLAG = "flag"
         const val RENAME = "rename"
         const val SEARCH_MODE = "search_mode"
+        const val OPEN_ACES_SETTINGS = "open_aces_settings"
     }
 
     object Dialog {

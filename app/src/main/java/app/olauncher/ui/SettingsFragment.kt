@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
+import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
 import android.os.Process
@@ -84,6 +85,13 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         populateSwipeApps()
         initClickListeners()
         initObservers()
+        if (arguments?.getBoolean(Constants.Key.OPEN_ACES_SETTINGS) == true) {
+            binding.scrollView.post {
+                val rect = Rect()
+                binding.scrollLayout.offsetDescendantRectToMyCoords(binding.settingsSearchSection, rect)
+                binding.scrollView.smoothScrollTo(0, rect.top)
+            }
+        }
     }
 
     override fun onClick(view: View) {

@@ -189,6 +189,13 @@ class Prefs(context: Context) {
         get() = prefs.getInt(DATE_TIME_VISIBILITY, Constants.DateTime.ON)
         set(value) = prefs.edit { putInt(DATE_TIME_VISIBILITY, value).apply() }
 
+    fun searchTileCount(mode: SearchMode): Int =
+        prefs.getInt("SEARCH_TILE_COUNT_${mode.name}", 1).coerceIn(1, 2)
+
+    fun setSearchTileCount(mode: SearchMode, value: Int) {
+        prefs.edit { putInt("SEARCH_TILE_COUNT_${mode.name}", value.coerceIn(1, 2)).apply() }
+    }
+
     var swipeLeftEnabled: Boolean
         get() = prefs.getBoolean(SWIPE_LEFT_ENABLED, true)
         set(value) = prefs.edit { putBoolean(SWIPE_LEFT_ENABLED, value).apply() }

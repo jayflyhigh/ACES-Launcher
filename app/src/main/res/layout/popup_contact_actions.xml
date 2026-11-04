@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_search_result"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:padding="4dp">
+
+    <ImageButton
+        android:id="@+id/contactCallAction"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/call"
+        android:padding="12dp"
+        android:src="@drawable/ic_call"
+        android:tint="?attr/primaryColor" />
+
+    <ImageButton
+        android:id="@+id/contactTextAction"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/text_message"
+        android:padding="12dp"
+        android:src="@drawable/ic_message"
+        android:tint="?attr/primaryColor" />
+
+    <ImageButton
+        android:id="@+id/contactWhatsAppAction"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/whatsapp"
+        android:padding="12dp"
+        android:src="@drawable/ic_chat"
+        android:tint="?attr/primaryColor" />
+</LinearLayout>

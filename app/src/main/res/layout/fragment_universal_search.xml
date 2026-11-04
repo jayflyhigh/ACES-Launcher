@@ -31,15 +31,35 @@
         app:searchIcon="@null"
         app:theme="@style/AppSearchText" />
 
-    <TextView
-        android:id="@+id/modeTitle"
-        style="@style/TextMedium"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:includeFontPadding="false"
-        android:paddingHorizontal="24dp"
-        android:paddingTop="4dp"
-        android:visibility="gone" />
+        android:minHeight="48dp">
+
+        <TextView
+            android:id="@+id/modeTitle"
+            style="@style/TextMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:includeFontPadding="false"
+            android:paddingStart="24dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="64dp"
+            android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/searchPageMenu"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="end|center_vertical"
+            android:layout_marginEnd="12dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/search_page_menu"
+            android:padding="12dp"
+            android:src="@drawable/ic_menu"
+            android:tint="?attr/primaryColor" />
+    </FrameLayout>
 
     <Space
         android:layout_width="match_parent"

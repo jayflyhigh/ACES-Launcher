@@ -190,6 +190,12 @@
     <string name="contact_search_settings">C - Contact search settings</string>
     <string name="search_engine_settings">E - Search Engine settings</string>
     <string name="search_everything_settings">S - Search everything settings</string>
+    <string name="search_page_menu">Search page menu</string>
+    <string name="search_page_settings">Search Page Settings</string>
+    <string name="one_tile_across">1 tile across</string>
+    <string name="two_tiles_across">2 tiles across</string>
+    <string name="decrease_tile_count">Show fewer tiles across</string>
+    <string name="increase_tile_count">Show more tiles across</string>
 
     <!-- Search -->
     <string name="apps">Apps</string>
