@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.PopupWindow
 import android.widget.SeekBar
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -46,6 +47,11 @@ class AppSearchSettingsFragment : BaseFragment() {
     private var updatingControls = false
     private var previewPopup: PopupWindow? = null
     private var previewPopupBinding: PopupSearchPageMenuBinding? = null
+    private val previewBackCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            previewPopup?.dismiss()
+        }
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentAppSearchSettingsBinding.inflate(inflater, container, false)
@@ -57,6 +63,7 @@ class AppSearchSettingsFragment : BaseFragment() {
         prefs = Prefs(requireContext())
         columns = savedInstanceState?.getInt(EDITING_COLUMNS) ?: prefs.searchTileCount(SearchMode.APPS_ONLY)
         appearance = prefs.appSearchAppearance(columns)
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, previewBackCallback)
         previewAdapter = PreviewAdapter()
         binding.previewResults.apply {
             layoutManager = AppSearchLayoutManager(requireContext(), columns)
@@ -91,7 +98,10 @@ class AppSearchSettingsFragment : BaseFragment() {
         binding.increaseLayout.setOnClickListener { if (columns == 1) chooseLayout(2) }
         binding.tileColor.setOnClickListener { togglePicker(binding.tileColorPicker.root) }
         binding.backgroundColor.setOnClickListener { togglePicker(binding.backgroundColorPicker.root) }
-        binding.popupColor.setOnClickListener { togglePicker(binding.popupColorPicker.root) }
+        binding.popupColor.setOnClickListener {
+            togglePicker(binding.popupColorPicker.root)
+            if (binding.popupColorPicker.root.isVisible && previewPopup == null) togglePreviewMenu()
+        }
         binding.applyColorToMenu.setOnCheckedChangeListener { _, checked ->
             if (!updatingControls) update(appearance.copy(applyTileColorToMenu = checked))
         }
@@ -195,10 +205,11 @@ class AppSearchSettingsFragment : BaseFragment() {
             menu.root,
             minOf((256 * density).roundToInt(), binding.root.width),
             ViewGroup.LayoutParams.WRAP_CONTENT,
-            true,
+            false,
         )
         popup.setBackgroundDrawable(appearance.applyMenu(menu))
-        popup.isOutsideTouchable = true
+        // Keep this preview visible while touches and keyboard input reach the color controls.
+        popup.isOutsideTouchable = false
         popup.inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
         popup.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
         popup.elevation = 8 * density
@@ -214,9 +225,11 @@ class AppSearchSettingsFragment : BaseFragment() {
         popup.setOnDismissListener {
             previewPopup = null
             previewPopupBinding = null
+            previewBackCallback.isEnabled = false
         }
         previewPopup = popup
         previewPopupBinding = menu
+        previewBackCallback.isEnabled = true
         popup.showAsDropDown(binding.previewMenu, 0, 0, Gravity.END)
     }
 

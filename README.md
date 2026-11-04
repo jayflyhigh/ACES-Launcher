@@ -31,9 +31,13 @@ uses two non-launching app results and includes a button to preview the existing
 three-line menu. Expand a color control to use RGB sliders or enter `#RRGGBB`.
 
 **Choose Settings** selects which layout to edit; it does not change the actual
-search layout. One- and two-column layouts independently remember tile colors,
-menu-tile color opt-in, page background and transparency, popup background,
-alignment, and spacing. The existing **Number of Tiles** menu selects the active
+search layout. Tile colors, menu-tile color opt-in, page background and transparency,
+and popup background are shared by both layouts. Alignment and spacing remain
+independently saved for each layout. Existing colors use the previously saved
+one-column value, falling back to the two-column value when unset.
+The settings screen has an opaque background; preview transparency does not affect
+the controls. The popup preview stays open while editing colors and closes with
+its preview button or Back. The existing **Number of Tiles** menu selects the active
 search layout and its saved appearance. Unchanged settings retain themed defaults.
 Top/Bottom position short result lists within the results area; Left/Right align
 the app icon and name within the existing full-width tiles. Longer lists remain

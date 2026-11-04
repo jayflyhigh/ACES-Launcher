@@ -44,7 +44,7 @@ class AppSearchAppearanceTest {
     }
 
     @Test
-    fun `one and two column settings never overwrite one another`() {
+    fun `colors are shared while alignment and spacing stay independent`() {
         val one = AppSearchAppearance(tileColor = 0xff112233.toInt(), spacingDp = 0)
         val two = AppSearchAppearance(
             tileColor = 0xffaabbcc.toInt(), applyTileColorToMenu = true,
@@ -52,9 +52,12 @@ class AppSearchAppearanceTest {
         )
         save(1, one)
         save(2, two)
-        save(1, one.copy(popupColor = 0xff445566.toInt()))
-        assertEquals(two, load(2))
-        assertEquals(one.copy(popupColor = 0xff445566.toInt()), load(1))
+        val shared = load(1).copy(popupColor = 0xff445566.toInt())
+        save(1, shared)
+        assertEquals(two.copy(popupColor = shared.popupColor), load(2))
+        assertEquals(two.copy(
+            popupColor = shared.popupColor, alignment = one.alignment, spacingDp = one.spacingDp,
+        ), load(1))
     }
 
     @Test
@@ -77,18 +80,65 @@ class AppSearchAppearanceTest {
         save(1, first)
         save(2, second)
         val reopened = saved.toMap()
-        assertEquals(first, AppSearchAppearance.load(1, reopened::get))
+        assertEquals(second.copy(spacingDp = first.spacingDp), AppSearchAppearance.load(1, reopened::get))
         assertEquals(second, AppSearchAppearance.load(2, reopened::get))
     }
 
     @Test
-    fun `menu tile opt in is independent from popup background and from other layout`() {
+    fun `menu tile opt in is shared without changing the popup background`() {
         val appearance = AppSearchAppearance(tileColor = 0xffaabbcc.toInt(), popupColor = 0xff112233.toInt())
         save(1, appearance.copy(applyTileColorToMenu = true))
         save(2, appearance)
-        assertTrue(load(1).applyTileColorToMenu)
+        assertFalse(load(1).applyTileColorToMenu)
         assertFalse(load(2).applyTileColorToMenu)
         assertEquals(appearance.popupColor, load(1).popupColor)
+        save(2, appearance.copy(applyTileColorToMenu = true))
+        assertTrue(load(1).applyTileColorToMenu)
+        assertEquals(appearance.popupColor, load(2).popupColor)
+    }
+
+    @Test
+    fun `every color property edited in either layout immediately applies to both`() {
+        for (columns in 1..2) {
+            val colors = AppSearchAppearance(
+                tileColor = 0xff112233.toInt() + columns,
+                applyTileColorToMenu = true,
+                backgroundColor = 0xff445566.toInt(),
+                backgroundTransparency = columns * 25,
+                popupColor = 0xff778899.toInt(),
+            )
+            save(columns, colors)
+            assertEquals(colors, load(1))
+            assertEquals(colors, load(2))
+        }
+    }
+
+    @Test
+    fun `old colors prefer one column and fall back to two while preserving both layouts sizes`() {
+        saved["APP_SEARCH_APPEARANCE_1_TILE_COLOR"] = 0xff112233.toInt()
+        saved["APP_SEARCH_APPEARANCE_2_TILE_COLOR"] = 0xffaabbcc.toInt()
+        saved["APP_SEARCH_APPEARANCE_2_POPUP_COLOR"] = 0xff445566.toInt()
+        saved["APP_SEARCH_APPEARANCE_1_SPACING"] = 4
+        saved["APP_SEARCH_APPEARANCE_2_SPACING"] = 20
+        saved["APP_SEARCH_APPEARANCE_2_ALIGNMENT"] = AppSearchAppearance.Alignment.RIGHT.ordinal
+        assertEquals(0xff112233.toInt(), load(1).tileColor)
+        assertEquals(load(1).tileColor, load(2).tileColor)
+        assertEquals(0xff445566.toInt(), load(1).popupColor)
+        assertEquals(4, load(1).spacingDp)
+        assertEquals(20, load(2).spacingDp)
+        assertEquals(AppSearchAppearance.Alignment.RIGHT, load(2).alignment)
+        save(2, load(2).copy(tileColor = 0xffabcdef.toInt()))
+        assertEquals(0xffabcdef.toInt(), load(1).tileColor)
+        assertEquals(4, load(1).spacingDp)
+        assertEquals(20, load(2).spacingDp)
+    }
+
+    @Test
+    fun `clearing a shared color does not resurrect old layout colors`() {
+        saved["APP_SEARCH_APPEARANCE_1_TILE_COLOR"] = 0xff112233.toInt()
+        save(1, load(1).copy(tileColor = null))
+        assertNull(load(1).tileColor)
+        assertNull(load(2).tileColor)
     }
 
     @Test

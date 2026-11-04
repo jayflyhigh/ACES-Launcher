@@ -27,19 +27,21 @@ data class AppSearchAppearance(
 
     fun save(columns: Int, write: (String, Int?) -> Unit) {
         val prefix = prefix(columns)
+        write(SHARED_COLORS + "SAVED", 1)
         mapOf(
             "TILE_COLOR" to tileColor,
             "MENU_TILES" to if (applyTileColorToMenu) 1 else 0,
             "BACKGROUND_COLOR" to backgroundColor,
             "TRANSPARENCY" to backgroundTransparency,
             "POPUP_COLOR" to popupColor,
-            "ALIGNMENT" to alignment?.ordinal,
-            "SPACING" to spacingDp,
-        ).forEach { (key, value) -> write(prefix + key, value) }
+        ).forEach { (key, value) -> write(SHARED_COLORS + key, value) }
+        write(prefix + "ALIGNMENT", alignment?.ordinal)
+        write(prefix + "SPACING", spacingDp)
     }
 
     companion object {
         const val MAX_SPACING_DP = 32
+        private const val SHARED_COLORS = "APP_SEARCH_APPEARANCE_COLORS_"
 
         private fun prefix(columns: Int): String {
             require(columns in 1..2)
@@ -49,12 +51,16 @@ data class AppSearchAppearance(
         fun load(columns: Int, read: (String) -> Int?): AppSearchAppearance {
             val prefix = prefix(columns)
             fun value(key: String) = read(prefix + key)
+            val sharedColorsSaved = read(SHARED_COLORS + "SAVED") == 1
+            fun color(key: String): Int? = if (sharedColorsSaved) read(SHARED_COLORS + key)
+                // Prefer the old one-column color, or retain the two-column color if it was the only one set.
+                else read(prefix(1) + key) ?: read(prefix(2) + key)
             return AppSearchAppearance(
-                tileColor = value("TILE_COLOR"),
-                applyTileColorToMenu = value("MENU_TILES") == 1,
-                backgroundColor = value("BACKGROUND_COLOR"),
-                backgroundTransparency = value("TRANSPARENCY"),
-                popupColor = value("POPUP_COLOR"),
+                tileColor = color("TILE_COLOR"),
+                applyTileColorToMenu = color("MENU_TILES") == 1,
+                backgroundColor = color("BACKGROUND_COLOR"),
+                backgroundTransparency = color("TRANSPARENCY"),
+                popupColor = color("POPUP_COLOR"),
                 alignment = value("ALIGNMENT")?.let { Alignment.entries[it] },
                 spacingDp = value("SPACING"),
             )
