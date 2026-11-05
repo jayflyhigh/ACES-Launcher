@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnLayout
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.lifecycle.Observer
@@ -100,6 +101,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
             params.bottomMargin = 12.dpToPx() + max(nav.bottom, cutout.bottom)
             params.setMargins(left, params.topMargin, right, params.bottomMargin)
             binding.homeWidget.homeWidgetPanel.layoutParams = params
+            positionHomeContentAboveWidget()
             insets
         }
         quickActions = QuickActionsMenu(this, binding.quickActions, viewModel)
@@ -107,6 +109,30 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
 
     private fun openQuickActions() {
         quickActions?.show()
+    }
+
+    private fun positionHomeContentAboveWidget() {
+        val panel = binding.homeWidget.homeWidgetPanel
+        if (panel.height == 0) {
+            panel.doOnLayout {
+                if (_binding != null) positionHomeContentAboveWidget()
+            }
+            return
+        }
+
+        val panelBottomMargin = (panel.layoutParams as ViewGroup.MarginLayoutParams).bottomMargin
+        val reservedHeight = panel.height + panelBottomMargin
+        (binding.homeAppsLayout.layoutParams as FrameLayout.LayoutParams).apply {
+            bottomMargin = reservedHeight
+            binding.homeAppsLayout.layoutParams = this
+        }
+        val promptMargin = reservedHeight + 8.dpToPx()
+        listOf(binding.firstRunTips, binding.setDefaultLauncher).forEach { prompt ->
+            (prompt.layoutParams as FrameLayout.LayoutParams).apply {
+                bottomMargin = promptMargin
+                prompt.layoutParams = this
+            }
+        }
     }
 
     override fun onStop() {
