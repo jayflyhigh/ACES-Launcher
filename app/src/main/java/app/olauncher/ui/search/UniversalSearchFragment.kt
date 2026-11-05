@@ -376,6 +376,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         activePopupWindow?.dismiss()
         val actions = PopupContactActionsBinding.inflate(layoutInflater)
         val popup = createPopup(actions.root, 160, R.drawable.bg_search_result, heightDp = 56)
+        popup.contentView.isVerticalScrollBarEnabled = false
+        popup.contentView.isHorizontalScrollBarEnabled = false
         // Let outside taps reach other contact tiles instead of only dismissing this popup.
         popup.isFocusable = false
         actions.contactCallAction.setOnClickListener {

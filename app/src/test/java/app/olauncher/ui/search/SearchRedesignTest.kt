@@ -310,6 +310,25 @@ class SearchRedesignTest {
     }
 
     @Test
+    fun `two tile contact shortcuts open without scrollbar indicators`() {
+        withPage(SearchMode.CONTACTS_ONLY, columns = 2) { _, fragment, _ ->
+            val list = fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView)
+            list.getChildAt(0).performClick()
+            val field = UniversalSearchFragment::class.java.getDeclaredField("activePopupWindow").apply {
+                isAccessible = true
+            }
+            val popup = field.get(fragment) as PopupWindow
+            assertTrue(popup.isShowing)
+            assertFalse(popup.contentView.isVerticalScrollBarEnabled)
+            assertFalse(popup.contentView.isHorizontalScrollBarEnabled)
+            for (action in listOf(R.id.contactCallAction, R.id.contactTextAction, R.id.contactWhatsAppAction)) {
+                assertEquals(View.VISIBLE, popup.contentView.findViewById<View>(action).visibility)
+            }
+            popup.dismiss()
+        }
+    }
+
+    @Test
     @Config(sdk = [28])
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun `redesigned pages render black backgrounds and readable tiles at phone widths`() {
