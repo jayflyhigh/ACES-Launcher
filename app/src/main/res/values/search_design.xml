@@ -17,6 +17,7 @@
     <string name="search_type_shortcut">Shortcut</string>
     <dimen name="search_top_space">64dp</dimen>
     <dimen name="search_corner_radius">16dp</dimen>
+    <dimen name="search_menu_item_gap">8dp</dimen>
     <string name="search_no_apps">No apps found</string>
     <string name="search_no_contacts">No contacts found</string>
     <string name="search_no_engines">No search engines found</string>

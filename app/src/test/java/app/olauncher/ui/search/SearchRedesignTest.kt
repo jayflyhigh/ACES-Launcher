@@ -227,6 +227,8 @@ class SearchRedesignTest {
             }
             val popup = field.get(fragment) as PopupWindow
             val menu = popup.contentView
+            val firstRow = (menu as android.view.ViewGroup).getChildAt(0)
+            assertNotNull(firstRow.findViewById<View>(R.id.tileCount))
             val settingsVisibility = menu.findViewById<View>(R.id.searchPageSettings).visibility
             val appearanceVisibility = menu.findViewById<View>(R.id.searchPageAppearance).visibility
             assertEquals(
@@ -237,6 +239,25 @@ class SearchRedesignTest {
                 View.GONE,
                 appearanceVisibility,
             )
+            popup.dismiss()
+            fragment.requireView().findViewById<View>(R.id.searchPageMenu).performClick()
+            val reopened = field.get(fragment) as PopupWindow
+            assertNotSame(popup, reopened)
+            assertTrue(reopened.isShowing)
+            reopened.dismiss()
+        }
+    }
+
+    @Test
+    fun `search engine result overflow does not contain search engine settings`() {
+        withPage(SearchMode.ENGINES_ONLY) { activity, fragment, _ ->
+            val row = fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView).getChildAt(0)
+            row.findViewById<View>(R.id.itemMenu).performClick()
+            val field = UniversalSearchFragment::class.java.getDeclaredField("activePopupWindow").apply { isAccessible = true }
+            val popup = field.get(fragment) as PopupWindow
+            val content = (popup.contentView as ScrollView).getChildAt(0) as android.widget.LinearLayout
+            assertEquals(1, content.childCount)
+            assertEquals(activity.getString(R.string.edit_search_engine), (content.getChildAt(0) as TextView).text)
             popup.dismiss()
         }
     }
@@ -319,8 +340,8 @@ class SearchRedesignTest {
                 val popupField = UniversalSearchFragment::class.java.getDeclaredField("activePopupWindow").apply { isAccessible = true }
                 val popup = popupField.get(fragment) as PopupWindow
                 val group = popup.contentView.findViewById<android.widget.LinearLayout>(R.id.contactCommands)
-                val tileControl = popup.contentView.findViewById<View>(R.id.tileCount).parent as View
-                val gap = (tileControl.layoutParams as android.view.ViewGroup.MarginLayoutParams).topMargin
+                assertNotNull((popup.contentView as android.view.ViewGroup).getChildAt(0).findViewById<View>(R.id.tileCount))
+                val gap = fragment.resources.getDimensionPixelSize(R.dimen.search_menu_item_gap)
                 assertEquals(4, group.childCount)
                 for (index in labels.indices) {
                     val entry = group.getChildAt(index) as TextView
@@ -608,8 +629,8 @@ class SearchRedesignTest {
                 val group = popup.contentView.findViewById<android.widget.LinearLayout>(R.id.contactCommands)
                 assertEquals(View.VISIBLE, group.visibility)
                 assertEquals(4, group.childCount)
-                val tileControl = popup.contentView.findViewById<View>(R.id.tileCount).parent as View
-                val gap = (tileControl.layoutParams as android.view.ViewGroup.MarginLayoutParams).topMargin
+                assertNotNull((popup.contentView as android.view.ViewGroup).getChildAt(0).findViewById<View>(R.id.tileCount))
+                val gap = fragment.resources.getDimensionPixelSize(R.dimen.search_menu_item_gap)
                 assertTrue(gap > 0)
                 for (entryIndex in labels.indices) {
                     val entry = group.getChildAt(entryIndex) as TextView

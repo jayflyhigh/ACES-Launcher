@@ -336,7 +336,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 Triple(ContactCommand.WHATSAPP.letter, R.drawable.ic_whatsapp, R.string.whatsapp),
                 Triple(ContactCommand.CONTACT.letter, R.drawable.ic_person, R.string.contact_command_page),
             )
-            val commandGap = ((popupBinding.tileCount.parent as View).layoutParams as ViewGroup.MarginLayoutParams).topMargin
+            val commandGap = resources.getDimensionPixelSize(R.dimen.search_menu_item_gap)
             commands.forEachIndexed { index, (command, icon, label) ->
                 val entry = TextView(requireContext()).apply {
                     text = getString(R.string.contact_command_menu_entry,
@@ -971,7 +971,6 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                     findNavController().navigate(R.id.searchEnginesFragment,
                         Bundle().apply { putString("edit_engine_id", item.engine.id) })
                 },
-                R.string.search_engine_settings to { findNavController().navigate(R.id.searchEnginesFragment) },
             )
             else -> return
         }
