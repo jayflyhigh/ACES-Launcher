@@ -199,7 +199,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         binding.search.queryHint = ""
         searchTextView = binding.search.findViewById(R.id.search_src_text)
         searchTextView?.apply {
-            gravity = prefs.appLabelAlignment
+            gravity = (prefs.appLabelAlignment and Gravity.VERTICAL_GRAVITY_MASK.inv()) or Gravity.CENTER_VERTICAL
             background = null
             backgroundTintList = null
             isCursorVisible = true

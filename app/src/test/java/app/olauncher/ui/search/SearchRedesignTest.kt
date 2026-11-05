@@ -94,6 +94,11 @@ class SearchRedesignTest {
                 )
                 assertEquals(titles[index], root.findViewById<TextView>(R.id.modeTitle).text.toString())
                 assertEquals("", root.findViewById<SearchView>(R.id.search).queryHint.toString())
+                val editor = root.findViewById<TextView>(R.id.search_src_text)
+                assertEquals(
+                    android.view.Gravity.CENTER_VERTICAL,
+                    editor.gravity and android.view.Gravity.VERTICAL_GRAVITY_MASK,
+                )
                 val list = root.findViewById<RecyclerView>(R.id.recyclerView)
                 assertEquals(columns, (list.layoutManager as GridLayoutManager).spanCount)
                 val adapter = list.adapter as SearchResultsAdapter
