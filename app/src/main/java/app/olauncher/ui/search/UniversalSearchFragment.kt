@@ -115,6 +115,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private var appCommandJob: Job? = null
     private var appCommandChip: AppCommandChipSpan? = null
     private var displayedAppCommand: AppCommand? = null
+    private var engineEditChip: EngineEditChipSpan? = null
     private var renameDialog: OlDialog? = null
     private var appsReady = false
     private val contactsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
@@ -248,7 +249,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private fun initRecyclerView() {
         searchTileCount = prefs.searchTileCount(mode)
         adapter = SearchResultsAdapter(prefs.appLabelAlignment, this, searchTileCount,
-            appCommandsEnabled = mode == SearchMode.APPS_ONLY)
+            appCommandsEnabled = mode == SearchMode.APPS_ONLY,
+            engineOverflowEnabled = mode != SearchMode.ENGINES_ONLY)
         binding.recyclerView.layoutManager = GridLayoutManager(requireContext(), searchTileCount).apply {
             spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int): Int =
@@ -322,14 +324,17 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         val popupBinding = PopupSearchPageMenuBinding.inflate(layoutInflater)
         popupBinding.searchPageSettings.isVisible = mode == SearchMode.ENGINES_ONLY
         popupBinding.searchPageAppearance.isVisible = false
-        popupBinding.contactCommands.isVisible = mode == SearchMode.CONTACTS_ONLY || mode == SearchMode.APPS_ONLY
-        if (mode == SearchMode.CONTACTS_ONLY || mode == SearchMode.APPS_ONLY) {
+        popupBinding.contactCommands.isVisible = mode == SearchMode.CONTACTS_ONLY ||
+            mode == SearchMode.APPS_ONLY || mode == SearchMode.ENGINES_ONLY
+        if (mode == SearchMode.CONTACTS_ONLY || mode == SearchMode.APPS_ONLY || mode == SearchMode.ENGINES_ONLY) {
             val density = resources.displayMetrics.density
             val commands = if (mode == SearchMode.APPS_ONLY) listOf(
                 Triple(AppCommand.RENAME.letter, appCommandIcon(AppCommand.RENAME), R.string.rename),
                 Triple(AppCommand.INFO.letter, appCommandIcon(AppCommand.INFO), R.string.app_command_info),
                 Triple(AppCommand.PLAY_STORE.letter, appCommandIcon(AppCommand.PLAY_STORE), R.string.app_command_store),
                 Triple(AppCommand.UNINSTALL.letter, appCommandIcon(AppCommand.UNINSTALL), R.string.app_command_uninstall),
+            ) else if (mode == SearchMode.ENGINES_ONLY) listOf(
+                Triple('e', R.drawable.ic_rename, R.string.app_command_engine_edit),
             ) else listOf(
                 Triple(ContactCommand.PHONE.letter, R.drawable.ic_call, R.string.contact_command_phone),
                 Triple(ContactCommand.MESSAGE.letter, R.drawable.ic_message, R.string.contact_command_message),
@@ -352,11 +357,18 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                     setCompoundDrawablesRelative(drawable, null, null, null)
                     setOnClickListener {
                         val query = currentQuery()
-                        val name = if (mode == SearchMode.APPS_ONLY) AppCommandQuery.parse(query)?.name ?: query.trim()
-                            else ContactCommandQuery.parse(query)?.name ?: query.trim()
+                        val name = when (mode) {
+                            SearchMode.APPS_ONLY -> AppCommandQuery.parse(query)?.name ?: query.trim()
+                            SearchMode.ENGINES_ONLY -> SearchEngines.SearchEngineCommandQuery.parse(query)?.name ?: query.trim()
+                            else -> ContactCommandQuery.parse(query)?.name ?: query.trim()
+                        }
                         activePopupWindow?.dismiss()
                         binding.search.setQuery("$command $name", false)
-                        if (mode == SearchMode.APPS_ONLY) updateAppCommandChip() else updateCommandIndicator()
+                        when (mode) {
+                            SearchMode.APPS_ONLY -> updateAppCommandChip()
+                            SearchMode.ENGINES_ONLY -> updateEngineEditChip()
+                            else -> updateCommandIndicator()
+                        }
                         searchTextView?.requestFocus()
                         (requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
                             .showSoftInput(searchTextView, InputMethodManager.SHOW_IMPLICIT)
@@ -543,6 +555,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             appCommandJob?.cancel()
             appCommandSession.update(query)
             updateAppCommandChip()
+        } else if (mode == SearchMode.ENGINES_ONLY) {
+            updateEngineEditChip()
         }
         if (mode == SearchMode.CONTACTS_ONLY) {
             commandJob?.cancel()
@@ -631,6 +645,23 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             AppCommandChipSpan(requireContext(), parsed.command, appCommandIcon(parsed.command)).also {
                 editable.setSpan(it, 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 appCommandChip = it
+            }
+        }
+    }
+
+    private fun updateEngineEditChip() {
+        val parsed = if (mode == SearchMode.ENGINES_ONLY) SearchEngines.SearchEngineCommandQuery.parse(currentQuery()) else null
+        val editable = searchTextView?.text as? Spannable ?: return
+        if (parsed != null && engineEditChip?.let {
+                editable.getSpanStart(it) == 0 && editable.getSpanEnd(it) == 1
+            } == true
+        ) return
+        engineEditChip?.let(editable::removeSpan)
+        engineEditChip = null
+        if (parsed != null) {
+            EngineEditChipSpan(requireContext(), R.drawable.ic_rename).also { span ->
+                editable.setSpan(span, 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                engineEditChip = span
             }
         }
     }
@@ -818,7 +849,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     ): List<SearchItem> {
         val commandQuery = if (mode == SearchMode.CONTACTS_ONLY) ContactCommandQuery.parse(query) else null
         val appQuery = if (mode == SearchMode.APPS_ONLY) AppCommandQuery.parse(query) else null
-        val q = appQuery?.name ?: commandQuery?.name ?: query.trim()
+        val engineCommand = if (mode == SearchMode.ENGINES_ONLY) SearchEngines.SearchEngineCommandQuery.parse(query) else null
+        val q = appQuery?.name ?: commandQuery?.name ?: engineCommand?.name ?: query.trim()
         val matcher = AppSearchMatcher(q)
         val coroutineContext = currentCoroutineContext()
         val showHeaders = mode == SearchMode.ALL_SEARCH
@@ -861,15 +893,26 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         }
 
         if (mode.showsEngines && engines.isNotEmpty()) {
-            val aliasEngineId = SearchEngines.parseAliasQuery(engines, query)?.first?.id
-            if (showHeaders) items.add(SearchItem.Header(titles.search))
-            engines.mapTo(items) { SearchItem.Engine(it, it.id == aliasEngineId) }
+            val matchingEngines = when {
+                engineCommand?.name?.isNotEmpty() == true -> engines.filter {
+                    coroutineContext.ensureActive()
+                    matcher.matches(it.name)
+                }
+                engineCommand != null -> engines
+                else -> engines
+            }
+            val aliasEngineId = if (engineCommand == null) SearchEngines.parseAliasQuery(engines, query)?.first?.id else null
+            if (matchingEngines.isNotEmpty()) {
+                if (showHeaders) items.add(SearchItem.Header(titles.search))
+                matchingEngines.mapTo(items) { SearchItem.Engine(it, it.id == aliasEngineId) }
+            }
         }
         if (mode == SearchMode.CONTACTS_ONLY && q.isNotBlank()) items.add(SearchItem.AddContact(q))
         return items
     }
 
     private fun submit(text: String) {
+        if (mode == SearchMode.ENGINES_ONLY && SearchEngines.SearchEngineCommandQuery.parse(text) != null) return
         if (mode == SearchMode.APPS_ONLY && AppCommandQuery.parse(text) != null) {
             appCommandJob?.cancel()
             adapter.currentList.filterIsInstance<SearchItem.App>().singleOrNull()?.let { executeAppCommand(it.app, text) }
@@ -1058,6 +1101,11 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
 
     override fun onEngineClick(engine: SearchEngine) {
         val text = currentQuery()
+        if (mode == SearchMode.ENGINES_ONLY && SearchEngines.SearchEngineCommandQuery.parse(text) != null) {
+            findNavController().navigate(R.id.searchEnginesFragment,
+                Bundle().apply { putString("edit_engine_id", engine.id) })
+            return
+        }
         val query = (SearchEngines.parseAliasQuery(engines, text)?.second ?: text).trim()
         if (query.isEmpty()) {
             binding.search.setQuery("${engine.alias} ", false)

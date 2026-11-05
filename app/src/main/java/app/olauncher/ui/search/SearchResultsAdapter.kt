@@ -59,6 +59,7 @@ class SearchResultsAdapter(
     private val actions: SearchActions,
     tileCount: Int,
     private val appCommandsEnabled: Boolean = false,
+    private val engineOverflowEnabled: Boolean = true,
 ) : ListAdapter<SearchItem, RecyclerView.ViewHolder>(DIFF) {
 
     private val iconScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -105,7 +106,8 @@ class SearchResultsAdapter(
             binding.itemTitle.alpha = 1f
             binding.itemType.isVisible = true
             binding.contactActions.isVisible = false
-            binding.itemMenu.isVisible = (item is SearchItem.App && !appCommandsEnabled) || item is SearchItem.Engine
+            binding.itemMenu.isVisible = (item is SearchItem.App && !appCommandsEnabled) ||
+                (item is SearchItem.Engine && engineOverflowEnabled)
             binding.root.setOnLongClickListener(null)
             binding.root.isLongClickable = false
             when (item) {

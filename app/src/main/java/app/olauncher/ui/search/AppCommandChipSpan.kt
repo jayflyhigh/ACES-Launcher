@@ -12,10 +12,16 @@ import androidx.core.content.ContextCompat
 import app.olauncher.R
 import app.olauncher.data.AppCommand
 
-internal class AppCommandChipSpan(context: Context, command: AppCommand, icon: Int) :
-    ImageSpan(chip(context, command, icon), ALIGN_BOTTOM)
+internal open class SearchCommandChipSpan(context: Context, letter: Char, icon: Int) :
+    ImageSpan(chip(context, letter, icon), ALIGN_BOTTOM)
 
-private fun chip(context: Context, command: AppCommand, icon: Int): BitmapDrawable {
+internal class AppCommandChipSpan(context: Context, command: AppCommand, icon: Int) :
+    SearchCommandChipSpan(context, command.letter, icon)
+
+internal class EngineEditChipSpan(context: Context, icon: Int) :
+    SearchCommandChipSpan(context, 'e', icon)
+
+private fun chip(context: Context, letter: Char, icon: Int): BitmapDrawable {
     val density = context.resources.displayMetrics.density
     val width = (52 * density).toInt().coerceAtLeast(1)
     val height = (26 * density).toInt().coerceAtLeast(1)
@@ -39,7 +45,7 @@ private fun chip(context: Context, command: AppCommand, icon: Int): BitmapDrawab
     paint.color = Color.WHITE
     paint.textSize = 12 * context.resources.displayMetrics.scaledDensity
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    canvas.drawText(command.letter.uppercaseChar().toString(), 31 * density,
+    canvas.drawText(letter.uppercaseChar().toString(), 31 * density,
         height / 2f - (paint.ascent() + paint.descent()) / 2, paint)
     return BitmapDrawable(context.resources, bitmap).apply { setBounds(0, 0, width, height) }
 }

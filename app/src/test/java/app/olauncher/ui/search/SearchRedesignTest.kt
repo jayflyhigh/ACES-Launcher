@@ -14,6 +14,10 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.widget.SearchView
 import androidx.core.graphics.Insets
+import androidx.navigation.NavController
+import androidx.navigation.NavOptions
+import androidx.navigation.Navigator
+import androidx.navigation.Navigation
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.ViewModelProvider
@@ -113,7 +117,9 @@ class SearchRedesignTest {
                     val row = list.findViewHolderForAdapterPosition(position)?.itemView ?: continue
                     if (item is SearchItem.Header) continue
                     assertEquals(
-                        if (item is SearchItem.ContactItem || (item is SearchItem.App && mode == SearchMode.APPS_ONLY))
+                        if (item is SearchItem.ContactItem || (item is SearchItem.App && mode == SearchMode.APPS_ONLY) ||
+                            (item is SearchItem.Engine && mode == SearchMode.ENGINES_ONLY)
+                        )
                             View.GONE else View.VISIBLE,
                         row.findViewById<View>(R.id.itemMenu).visibility,
                     )
@@ -259,6 +265,63 @@ class SearchRedesignTest {
             assertEquals(1, content.childCount)
             assertEquals(activity.getString(R.string.edit_search_engine), (content.getChildAt(0) as TextView).text)
             popup.dismiss()
+        }
+    }
+
+    @Test
+    fun `engine edit command filters engines and is available below page settings`() {
+        withPage(SearchMode.ENGINES_ONLY) { activity, fragment, _ ->
+            SearchEngines.save(activity, listOf(
+                SearchEngine("google", "Google", "https://google.com/search?q=%s", "g"),
+                SearchEngine("youtube", "YouTube", "https://youtube.com/results?q=%s", "yt"),
+            ))
+            val search = fragment.requireView().findViewById<SearchView>(R.id.search)
+            val list = fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView)
+            val adapter = list.adapter as SearchResultsAdapter
+            search.setQuery("e goo", false)
+            awaitCommand { adapter.currentList.filterIsInstance<SearchItem.Engine>().map { it.engine.id } == listOf("google") }
+            assertEquals(1, adapter.currentList.filterIsInstance<SearchItem.Engine>().size)
+            layout(fragment)
+            val editor = fragment.requireView().findViewById<TextView>(R.id.search_src_text).text as android.text.Spanned
+            assertEquals(1, editor.getSpans(0, 1, EngineEditChipSpan::class.java).size)
+
+            fragment.requireView().findViewById<View>(R.id.searchPageMenu).performClick()
+            val field = UniversalSearchFragment::class.java.getDeclaredField("activePopupWindow").apply { isAccessible = true }
+            val popup = field.get(fragment) as PopupWindow
+            val menu = (popup.contentView as ScrollView).getChildAt(0) as android.view.ViewGroup
+            assertNotNull(menu.getChildAt(0).findViewById<View>(R.id.tileCount))
+            assertEquals(activity.getString(R.string.search_page_settings),
+                menu.getChildAt(1).findViewById<TextView>(R.id.searchPageSettings).text)
+            val commands = popup.contentView.findViewById<android.widget.LinearLayout>(R.id.contactCommands)
+            assertEquals(1, commands.childCount)
+            val edit = commands.getChildAt(0) as TextView
+            assertEquals("E - Edit", edit.text.toString())
+            assertNotNull(edit.compoundDrawablesRelative[0])
+            edit.performClick()
+            assertEquals("e goo", search.query.toString())
+            assertEquals(1, (fragment.requireView().findViewById<TextView>(R.id.search_src_text).text as android.text.Spanned)
+                .getSpans(0, 1, EngineEditChipSpan::class.java).size)
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+        }
+    }
+
+    @Test
+    fun `tapping filtered engine in E edit mode opens that engine editor`() {
+        withPage(SearchMode.ENGINES_ONLY) { activity, fragment, _ ->
+            SearchEngines.save(activity, listOf(
+                SearchEngine("google", "Google", "https://google.com/search?q=%s", "g"),
+                SearchEngine("youtube", "YouTube", "https://youtube.com/results?q=%s", "yt"),
+            ))
+            val search = fragment.requireView().findViewById<SearchView>(R.id.search)
+            val adapter = fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView).adapter as SearchResultsAdapter
+            search.setQuery("e goo", false)
+            awaitCommand { adapter.currentList.filterIsInstance<SearchItem.Engine>().map { it.engine.id } == listOf("google") }
+            layout(fragment)
+            val navController = RecordingNavController(activity)
+            Navigation.setViewNavController(fragment.requireView(), navController)
+            fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView).getChildAt(0).performClick()
+            assertEquals(R.id.searchEnginesFragment, navController.destination)
+            assertEquals("google", navController.arguments?.getString("edit_engine_id"))
         }
     }
 
@@ -793,6 +856,21 @@ class SearchRedesignTest {
             Rect(0, 0, 160, 56),
             centeredSearchPopupBounds(Rect(0, 0, 400, 800), 0, 0, 80, 40, 160, 56),
         )
+    }
+}
+
+private class RecordingNavController(context: android.content.Context) : NavController(context) {
+    var destination: Int = View.NO_ID
+    var arguments: Bundle? = null
+
+    override fun navigate(
+        resId: Int,
+        args: Bundle?,
+        navOptions: NavOptions?,
+        navigatorExtras: Navigator.Extras?,
+    ) {
+        destination = resId
+        arguments = args
     }
 }
 

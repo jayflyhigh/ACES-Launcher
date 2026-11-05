@@ -109,6 +109,15 @@ object SearchEngines {
         SearchEngine(newId(), "Google Maps", "https://www.google.com/maps/search/?api=1&query=%s", "m"),
     )
 
+    data class SearchEngineCommandQuery(val name: String) {
+        companion object {
+            fun parse(query: String): SearchEngineCommandQuery? =
+                if (query.length >= 2 && query[1] == ' ' && query[0].lowercaseChar() == 'e')
+                    SearchEngineCommandQuery(query.substring(2).trim())
+                else null
+        }
+    }
+
     private fun serialize(list: List<SearchEngine>): String {
         val array = JSONArray()
         list.forEach {
