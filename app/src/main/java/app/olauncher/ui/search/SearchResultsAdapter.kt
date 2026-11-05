@@ -9,6 +9,7 @@ import android.net.Uri
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.view.isVisible
+import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -200,8 +201,13 @@ class SearchResultsAdapter(
             val key = "contact-photo|${contact.id}|$uri"
             binding.itemIcon.tag = key
             fun applyPhoto(state: Drawable.ConstantState) {
+                val photo = state.newDrawable(binding.root.resources) as BitmapDrawable
                 binding.itemIcon.imageTintList = null
-                binding.itemIcon.setImageDrawable(state.newDrawable(binding.root.resources).mutate())
+                binding.itemIcon.setImageDrawable(
+                    RoundedBitmapDrawableFactory.create(binding.root.resources, photo.bitmap).apply {
+                        isCircular = true
+                    },
+                )
             }
             iconCache.get(key)?.let {
                 applyPhoto(it)

@@ -308,7 +308,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 Triple(ContactCommand.WHATSAPP, R.drawable.ic_whatsapp, R.string.whatsapp),
                 Triple(ContactCommand.CONTACT, R.drawable.ic_person, R.string.contact_command_page),
             )
-            commands.forEach { (command, icon, label) ->
+            val commandGap = ((popupBinding.tileCount.parent as View).layoutParams as ViewGroup.MarginLayoutParams).topMargin
+            commands.forEachIndexed { index, (command, icon, label) ->
                 val entry = TextView(requireContext()).apply {
                     text = getString(R.string.contact_command_menu_entry,
                         command.letter.uppercaseChar().toString(), getString(label))
@@ -333,7 +334,9 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                     }
                 }
                 popupBinding.contactCommands.addView(entry,
-                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (48 * density).toInt()))
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (48 * density).toInt()).apply {
+                        topMargin = if (index == 0) 0 else commandGap
+                    })
             }
         }
         updateTileCountControls(popupBinding)

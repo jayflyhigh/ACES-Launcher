@@ -345,10 +345,15 @@ class SearchRedesignTest {
                 val group = popup.contentView.findViewById<android.widget.LinearLayout>(R.id.contactCommands)
                 assertEquals(View.VISIBLE, group.visibility)
                 assertEquals(4, group.childCount)
+                val tileControl = popup.contentView.findViewById<View>(R.id.tileCount).parent as View
+                val gap = (tileControl.layoutParams as android.view.ViewGroup.MarginLayoutParams).topMargin
+                assertTrue(gap > 0)
                 for (entryIndex in labels.indices) {
                     val entry = group.getChildAt(entryIndex) as TextView
                     assertEquals(labels[entryIndex], entry.text.toString())
                     assertNotNull(entry.compoundDrawablesRelative[0])
+                    assertEquals(if (entryIndex == 0) 0 else gap,
+                        (entry.layoutParams as android.view.ViewGroup.MarginLayoutParams).topMargin)
                 }
                 group.getChildAt(index).performClick()
                 assertFalse(popup.isShowing)
@@ -375,9 +380,16 @@ class SearchRedesignTest {
             awaitCommand { (adapter.currentList.firstOrNull() as? SearchItem.ContactItem)?.contact?.photoUri == photoUri.toString() }
             layout(fragment)
             val image = list.getChildAt(0).findViewById<android.widget.ImageView>(R.id.itemIcon)
-            awaitCommand { image.drawable is android.graphics.drawable.BitmapDrawable }
+            awaitCommand { image.drawable is androidx.core.graphics.drawable.RoundedBitmapDrawable }
             assertNull(image.imageTintList)
-            assertEquals(Color.RED, (image.drawable as android.graphics.drawable.BitmapDrawable).bitmap.getPixel(0, 0))
+            val photo = image.drawable as androidx.core.graphics.drawable.RoundedBitmapDrawable
+            assertTrue(photo.isCircular)
+            val rendered = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
+            photo.setBounds(0, 0, 32, 32)
+            photo.draw(Canvas(rendered))
+            assertEquals(Color.TRANSPARENT, rendered.getPixel(0, 0))
+            assertEquals(Color.RED, rendered.getPixel(16, 16))
+            rendered.recycle()
             shadowOf(activity.contentResolver).registerInputStream(android.net.Uri.parse("content://missing/photo"),
                 object : java.io.InputStream() {
                     override fun read(): Int = throw java.io.FileNotFoundException("Missing test photo")
