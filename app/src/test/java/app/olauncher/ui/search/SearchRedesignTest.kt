@@ -38,12 +38,14 @@ import java.io.File
 @LooperMode(LooperMode.Mode.PAUSED)
 class SearchRedesignTest {
     private val app = AppModel.App("Chrome", null, "com.android.chrome", null, user = Process.myUserHandle())
+    private lateinit var pageController: org.robolectric.android.controller.ActivityController<ContactCommandTestActivity>
 
     private fun withPage(mode: SearchMode, columns: Int = 1,
         action: (ContactCommandTestActivity, UniversalSearchFragment, MainViewModel) -> Unit,
     ) {
         CommandContactsProvider().install()
         val controller = Robolectric.buildActivity(ContactCommandTestActivity::class.java).setup()
+        pageController = controller
         try {
             val activity = controller.get()
             Prefs(activity).apply {
@@ -69,6 +71,11 @@ class SearchRedesignTest {
 
     private fun count(fragment: UniversalSearchFragment) =
         fragment.requireView().findViewById<TextView>(R.id.resultsCount).text.toString()
+
+    private fun awaitAppCommandScheduled(fragment: UniversalSearchFragment) {
+        val field = UniversalSearchFragment::class.java.getDeclaredField("appCommandJob").apply { isAccessible = true }
+        awaitCommand { (field.get(fragment) as? kotlinx.coroutines.Job)?.isActive == true }
+    }
 
     private fun layout(fragment: UniversalSearchFragment, width: Int = 400, height: Int = 800, idle: Boolean = true) {
         val density = fragment.resources.displayMetrics.density
@@ -106,7 +113,8 @@ class SearchRedesignTest {
                     val row = list.findViewHolderForAdapterPosition(position)?.itemView ?: continue
                     if (item is SearchItem.Header) continue
                     assertEquals(
-                        if (item is SearchItem.ContactItem) View.GONE else View.VISIBLE,
+                        if (item is SearchItem.ContactItem || (item is SearchItem.App && mode == SearchMode.APPS_ONLY))
+                            View.GONE else View.VISIBLE,
                         row.findViewById<View>(R.id.itemMenu).visibility,
                     )
                     assertEquals(
@@ -294,6 +302,259 @@ class SearchRedesignTest {
                     (editor.text as android.text.Spanned).getSpans(0, 1, android.text.style.ImageSpan::class.java).size,
                 )
                 assertEquals(View.GONE, root.findViewById<View>(R.id.commandIndicator).visibility)
+            }
+        }
+    }
+
+    @Test
+    fun `app command menu uses ordered spaced entries and editable chips in both layouts`() {
+        for (columns in 1..2) withPage(SearchMode.APPS_ONLY, columns) { activity, fragment, _ ->
+            val root = fragment.requireView()
+            val search = root.findViewById<SearchView>(R.id.search)
+            val list = root.findViewById<RecyclerView>(R.id.recyclerView)
+            assertEquals(View.GONE, list.getChildAt(0).findViewById<View>(R.id.itemMenu).visibility)
+            val labels = listOf("R - Rename", "I - Open app info", "P - Go to Play Store", "U - Uninstall")
+            for (command in AppCommand.entries + AppCommand.UNINSTALL) {
+                root.findViewById<View>(R.id.searchPageMenu).performClick()
+                val popupField = UniversalSearchFragment::class.java.getDeclaredField("activePopupWindow").apply { isAccessible = true }
+                val popup = popupField.get(fragment) as PopupWindow
+                val group = popup.contentView.findViewById<android.widget.LinearLayout>(R.id.contactCommands)
+                val tileControl = popup.contentView.findViewById<View>(R.id.tileCount).parent as View
+                val gap = (tileControl.layoutParams as android.view.ViewGroup.MarginLayoutParams).topMargin
+                assertEquals(4, group.childCount)
+                for (index in labels.indices) {
+                    val entry = group.getChildAt(index) as TextView
+                    assertEquals(labels[index], entry.text.toString())
+                    assertNotNull(entry.compoundDrawablesRelative[0])
+                    assertEquals(if (index == 0) 0 else gap,
+                        (entry.layoutParams as android.view.ViewGroup.MarginLayoutParams).topMargin)
+                }
+                group.getChildAt(AppCommand.entries.indexOf(command)).performClick()
+                assertEquals("${command.letter} ", search.query.toString())
+                val editor = root.findViewById<TextView>(R.id.search_src_text)
+                val text = editor.text as android.text.Spanned
+                assertEquals(1, text.getSpans(0, 1, AppCommandChipSpan::class.java).size)
+                assertNull(shadowOf(activity).peekNextStartedActivity())
+            }
+            val editor = root.findViewById<android.widget.EditText>(R.id.search_src_text)
+            editor.text.delete(0, 1)
+            assertTrue(editor.text.getSpans(0, editor.length(), AppCommandChipSpan::class.java).isEmpty())
+            assertNull(AppCommandQuery.parse(search.query.toString()))
+        }
+    }
+
+    @Test
+    fun `unique app command opens store once and falls back when Play Store is missing`() {
+        for (available in listOf(true, false)) withPage(SearchMode.APPS_ONLY) { activity, fragment, vm ->
+            activity.playStoreAvailable = available
+            val search = fragment.requireView().findViewById<SearchView>(R.id.search)
+            search.setQuery("P chrome", false)
+            awaitAppCommandScheduled(fragment)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(249))
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1))
+            val intent = shadowOf(activity).nextStartedActivity
+            assertEquals(android.content.Intent.ACTION_VIEW, intent.action)
+            assertEquals(if (available) "market://details?id=com.android.chrome"
+                else "https://play.google.com/store/apps/details?id=com.android.chrome", intent.dataString)
+            vm.appList.value = listOf(app)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
+            fragment.onAppClick(app)
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+        }
+    }
+
+    @Test
+    fun `rename command allows choosing an app before a unique match and saves only on confirmation`() {
+        for (columns in 1..2) withPage(SearchMode.APPS_ONLY, columns) { activity, fragment, vm ->
+            val other = app.copy(appLabel = "Chrome Beta", appPackage = "com.chrome.beta")
+            val savedName = Prefs(activity).getAppRenameLabel(other.appPackage)
+            vm.appList.value = listOf(app, other)
+            val search = fragment.requireView().findViewById<SearchView>(R.id.search)
+            search.setQuery("r ch", false)
+            val list = fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView)
+            val adapter = list.adapter as SearchResultsAdapter
+            awaitCommand { adapter.currentList.filterIsInstance<SearchItem.App>().size == 2 }
+            layout(fragment)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
+            val field = UniversalSearchFragment::class.java.getDeclaredField("renameDialog").apply { isAccessible = true }
+            assertNull(field.get(fragment))
+            list.findViewHolderForAdapterPosition(1)!!.itemView.performClick()
+            val dialog = field.get(fragment) as app.olauncher.helper.OlDialog
+            assertTrue(dialog.isShowing)
+            val input = dialog.findViewById<android.widget.FrameLayout>(R.id.contentContainer)!!.getChildAt(0) as android.widget.EditText
+            assertEquals("Chrome Beta", input.text.toString())
+            input.setText("My Browser")
+            assertEquals(savedName, Prefs(activity).getAppRenameLabel(other.appPackage))
+            dialog.findViewById<View>(R.id.tvAction)!!.performClick()
+            assertEquals("My Browser", Prefs(activity).getAppRenameLabel(other.appPackage))
+            assertEquals("", Prefs(activity).getAppRenameLabel(app.appPackage))
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+        }
+    }
+
+    @Test
+    fun `uninstall command requests Android confirmation for the selected package`() {
+        withPage(SearchMode.APPS_ONLY) { activity, fragment, _ ->
+            shadowOf(activity.packageManager).installPackage(android.content.pm.PackageInfo().apply {
+                packageName = app.appPackage
+                applicationInfo = android.content.pm.ApplicationInfo().apply { packageName = app.appPackage; flags = 0 }
+            })
+            fragment.requireView().findViewById<SearchView>(R.id.search).setQuery("u chrome", false)
+            awaitAppCommandScheduled(fragment)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(250))
+            val intent = shadowOf(activity).nextStartedActivity
+            assertEquals(android.content.Intent.ACTION_DELETE, intent.action)
+            assertEquals("package:com.android.chrome", intent.dataString)
+            assertNotNull(activity.packageManager.getPackageInfo(app.appPackage, 0))
+        }
+    }
+
+    @Test
+    fun `app commands cannot fire during composition after query changes or after leaving`() {
+        withPage(SearchMode.APPS_ONLY) { activity, fragment, _ ->
+            val root = fragment.requireView()
+            val search = root.findViewById<SearchView>(R.id.search)
+            val editor = root.findViewById<android.widget.EditText>(R.id.search_src_text)
+            val adapter = root.findViewById<RecyclerView>(R.id.recyclerView).adapter as SearchResultsAdapter
+            search.setQuery("p chrome", false)
+            awaitAppCommandScheduled(fragment)
+            android.view.inputmethod.BaseInputConnection.setComposingSpans(editor.text)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+            android.view.inputmethod.BaseInputConnection.removeComposingSpans(editor.text)
+            search.setQuery("p chr", false)
+            awaitAppCommandScheduled(fragment)
+            search.setQuery("no matching app", false)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+            search.setQuery("p chrome", false)
+            awaitAppCommandScheduled(fragment)
+            pageController.pause().stop().start().resume().visible()
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+        }
+    }
+
+    @Test
+    fun `executed app command does not repeat after recreation`() {
+        withPage(SearchMode.APPS_ONLY) { activity, fragment, _ ->
+            fragment.requireView().findViewById<SearchView>(R.id.search).setQuery("p chrome", false)
+            awaitAppCommandScheduled(fragment)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(250))
+            assertNotNull(shadowOf(activity).nextStartedActivity)
+            pageController.recreate()
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
+            val recreated = pageController.get()
+            val restored = recreated.supportFragmentManager.findFragmentById(android.R.id.content)!!
+            assertEquals("p chrome", restored.requireView().findViewById<SearchView>(R.id.search).query.toString())
+            assertNull(shadowOf(recreated).peekNextStartedActivity())
+        }
+    }
+
+    @Test
+    @Config(shadows = [AppCommandLauncherShadow::class, AppCommandActivityShadow::class])
+    fun `app info command targets the selected app and user profile`() {
+        withPage(SearchMode.APPS_ONLY) { activity, fragment, vm ->
+            val profile = android.os.UserHandle.getUserHandleForUid(1000000)
+            vm.appList.value = listOf(app.copy(user = profile))
+            fragment.requireView().findViewById<SearchView>(R.id.search).setQuery("i chrome", false)
+            awaitAppCommandScheduled(fragment)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(250))
+            val launcher = org.robolectric.shadow.api.Shadow.extract<AppCommandLauncherShadow>(
+                activity.getSystemService(android.content.pm.LauncherApps::class.java))
+            assertEquals(android.content.ComponentName(app.appPackage, "MainActivity"), launcher.detailsComponent)
+            assertEquals(profile, launcher.detailsUser)
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+        }
+    }
+
+    @Test
+    @Config(shadows = [AppCommandLauncherShadow::class, AppCommandActivityShadow::class])
+    fun `uninstall guards system apps other profiles and pinned shortcuts`() {
+        for (target in listOf("system", "profile", "shortcut")) withPage(SearchMode.APPS_ONLY) { activity, fragment, vm ->
+            val launcher = org.robolectric.shadow.api.Shadow.extract<AppCommandLauncherShadow>(
+                activity.getSystemService(android.content.pm.LauncherApps::class.java))
+            launcher.systemApp = target == "system"
+            launcher.detailsComponent = null
+            launcher.detailsUser = null
+            val selected = when (target) {
+                "shortcut" -> AppModel.PinnedShortcut("Chrome", null, app.appPackage, "shortcut", user = app.user)
+                "profile" -> app.copy(user = android.os.UserHandle.getUserHandleForUid(1000000))
+                else -> app
+            }
+            vm.appList.value = listOf(selected)
+            fragment.requireView().findViewById<SearchView>(R.id.search).setQuery("u chrome", false)
+            awaitAppCommandScheduled(fragment)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(250))
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+            if (target == "shortcut") {
+                assertNull(launcher.detailsComponent)
+                assertEquals(activity.getString(R.string.app_command_unsupported),
+                    org.robolectric.shadows.ShadowToast.getTextOfLatestToast())
+            } else {
+                assertEquals(selected.appPackage, launcher.detailsComponent?.packageName)
+                assertEquals(selected.user, launcher.detailsUser)
+            }
+        }
+    }
+
+    @Test
+    fun `unique rename opens a dialog automatically without saving or launching`() {
+        withPage(SearchMode.APPS_ONLY) { activity, fragment, _ ->
+            val before = Prefs(activity).getAppRenameLabel(app.appPackage)
+            fragment.requireView().findViewById<SearchView>(R.id.search).setQuery("r chrome", false)
+            awaitAppCommandScheduled(fragment)
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(250))
+            val field = UniversalSearchFragment::class.java.getDeclaredField("renameDialog").apply { isAccessible = true }
+            val dialog = field.get(fragment) as app.olauncher.helper.OlDialog
+            assertTrue(dialog.isShowing)
+            assertEquals(before, Prefs(activity).getAppRenameLabel(app.appPackage))
+            dialog.dismiss()
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+        }
+    }
+
+    @Test
+    @Config(sdk = [28])
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `app command chips render inside the query field at narrow phone widths`() {
+        withPage(SearchMode.APPS_ONLY) { _, fragment, _ ->
+            val root = fragment.requireView()
+            val search = root.findViewById<SearchView>(R.id.search)
+            for (width in listOf(320, 400)) for (command in AppCommand.entries) {
+                search.setQuery("${command.letter} ", false)
+                layout(fragment, width = width)
+                val editor = root.findViewById<TextView>(R.id.search_src_text)
+                val text = editor.text as android.text.Spanned
+                val chip = text.getSpans(0, 1, AppCommandChipSpan::class.java).single()
+                assertTrue(chip.drawable.bounds.width() < editor.width)
+                assertTrue(chip.drawable.bounds.height() <= editor.height - editor.paddingTop - editor.paddingBottom)
+                val image = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
+                root.draw(Canvas(image))
+                System.getenv("ACES_SCREENSHOT_DIR")?.let { directory ->
+                    File(directory, "app-command-${command.letter}-$width.png").outputStream().use {
+                        assertTrue(image.compress(Bitmap.CompressFormat.PNG, 100, it))
+                    }
+                }
+                image.recycle()
+            }
+        }
+    }
+
+    @Test
+    fun `app command prefixes remain ordinary text in Search Anything`() {
+        withPage(SearchMode.ALL_SEARCH) { activity, fragment, _ ->
+            val root = fragment.requireView()
+            val search = root.findViewById<SearchView>(R.id.search)
+            val adapter = root.findViewById<RecyclerView>(R.id.recyclerView).adapter as SearchResultsAdapter
+            for (command in AppCommand.entries) {
+                search.setQuery("${command.letter} chrome", false)
+                awaitCommand { adapter.currentList.none { it is SearchItem.App } }
+                val text = root.findViewById<TextView>(R.id.search_src_text).text as android.text.Spanned
+                assertTrue(text.getSpans(0, text.length, AppCommandChipSpan::class.java).isEmpty())
+                shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
+                assertNull(shadowOf(activity).peekNextStartedActivity())
             }
         }
     }
@@ -510,4 +771,47 @@ class SearchRedesignTest {
             centeredSearchPopupBounds(Rect(0, 0, 400, 800), 0, 0, 80, 40, 160, 56),
         )
     }
+}
+
+@org.robolectric.annotation.Implements(android.content.pm.LauncherApps::class)
+class AppCommandLauncherShadow : org.robolectric.shadows.ShadowLauncherApps() {
+    var detailsComponent: android.content.ComponentName? = null
+    var detailsUser: android.os.UserHandle? = null
+    var systemApp = false
+
+    @org.robolectric.annotation.Implementation
+    public override fun getActivityList(packageName: String?, user: android.os.UserHandle?): List<android.content.pm.LauncherActivityInfo> {
+        if (packageName == null) return emptyList()
+        val activity = org.robolectric.shadow.api.Shadow.newInstanceOf(android.content.pm.LauncherActivityInfo::class.java)
+        org.robolectric.shadow.api.Shadow.extract<AppCommandActivityShadow>(activity).apply {
+            component = android.content.ComponentName(packageName, "MainActivity")
+            application = android.content.pm.ApplicationInfo().apply {
+                this.packageName = packageName
+                flags = if (systemApp) android.content.pm.ApplicationInfo.FLAG_SYSTEM else 0
+            }
+        }
+        return listOf(activity)
+    }
+
+    @org.robolectric.annotation.Implementation
+    public override fun startAppDetailsActivity(component: android.content.ComponentName, user: android.os.UserHandle,
+        bounds: Rect?, options: Bundle?) {
+        detailsComponent = component
+        detailsUser = user
+    }
+}
+
+@org.robolectric.annotation.Implements(android.content.pm.LauncherActivityInfo::class)
+class AppCommandActivityShadow {
+    lateinit var component: android.content.ComponentName
+    lateinit var application: android.content.pm.ApplicationInfo
+
+    @org.robolectric.annotation.Implementation
+    fun getComponentName() = component
+
+    @org.robolectric.annotation.Implementation
+    fun getApplicationInfo() = application
+
+    @org.robolectric.annotation.Implementation
+    fun getBadgedIcon(density: Int): android.graphics.drawable.Drawable = ColorDrawable(Color.WHITE)
 }

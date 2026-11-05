@@ -1,0 +1,8 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="app_command_info">Open app info</string>
+    <string name="app_command_store">Go to Play Store</string>
+    <string name="app_command_uninstall">Uninstall</string>
+    <string name="app_command_unsupported">This action is unavailable for this result.</string>
+    <string name="app_command_profile_uninstall">Use this profile\'s app-info page to uninstall the app.</string>
+    <string name="app_command_name_required">Enter an app name</string>
+</resources>

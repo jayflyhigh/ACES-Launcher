@@ -45,6 +45,9 @@ import androidx.recyclerview.widget.RecyclerView
 import app.olauncher.MainViewModel
 import app.olauncher.R
 import app.olauncher.data.AppModel
+import app.olauncher.data.AppCommand
+import app.olauncher.data.AppCommandQuery
+import app.olauncher.data.AppCommandSession
 import app.olauncher.data.AppSearchAppearance
 import app.olauncher.data.Constants
 import app.olauncher.data.Contact
@@ -64,6 +67,9 @@ import app.olauncher.helper.hideKeyboard
 import app.olauncher.helper.openAppInfo
 import app.olauncher.helper.showKeyboard
 import app.olauncher.helper.showToast
+import app.olauncher.helper.createDialog
+import app.olauncher.helper.OlDialog
+import app.olauncher.helper.isSystemApp
 import app.olauncher.ui.BaseFragment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -105,6 +111,11 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private var restoringCommandState = false
     private var displayedCommand: ContactCommand? = null
     private var commandCodeIconSpan: ImageSpan? = null
+    private var appCommandSession = AppCommandSession()
+    private var appCommandJob: Job? = null
+    private var appCommandChip: AppCommandChipSpan? = null
+    private var displayedAppCommand: AppCommand? = null
+    private var renameDialog: OlDialog? = null
     private var appsReady = false
     private val contactsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) { viewModel.loadContacts() }
@@ -143,6 +154,16 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         prefs = Prefs(requireContext())
         mode = SearchMode.from(arguments?.getString(Constants.Key.SEARCH_MODE))
         displayedCommand = null
+        displayedAppCommand = null
+        if (mode == SearchMode.APPS_ONLY) {
+            restoringCommandState = savedInstanceState != null
+            if (savedInstanceState != null) {
+                appCommandSession = AppCommandSession(
+                    savedInstanceState.getString("appCommandQuery").orEmpty(),
+                    savedInstanceState.getBoolean("appCommandConsumed"),
+                )
+            }
+        }
         if (mode == SearchMode.CONTACTS_ONLY) {
             restoringCommandState = savedInstanceState != null
             if (savedInstanceState != null) {
@@ -167,7 +188,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
         super.onViewStateRestored(savedInstanceState)
         restoringCommandState = false
-        if (mode == SearchMode.CONTACTS_ONLY) rebuild()
+        if (mode == SearchMode.CONTACTS_ONLY || mode == SearchMode.APPS_ONLY) rebuild()
     }
 
     private fun initSearchView() {
@@ -226,7 +247,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
 
     private fun initRecyclerView() {
         searchTileCount = prefs.searchTileCount(mode)
-        adapter = SearchResultsAdapter(prefs.appLabelAlignment, this, searchTileCount)
+        adapter = SearchResultsAdapter(prefs.appLabelAlignment, this, searchTileCount,
+            appCommandsEnabled = mode == SearchMode.APPS_ONLY)
         binding.recyclerView.layoutManager = GridLayoutManager(requireContext(), searchTileCount).apply {
             spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int): Int =
@@ -296,23 +318,29 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             it.dismiss()
             return
         }
+        appCommandJob?.cancel()
         val popupBinding = PopupSearchPageMenuBinding.inflate(layoutInflater)
         popupBinding.searchPageSettings.isVisible = mode == SearchMode.ENGINES_ONLY
         popupBinding.searchPageAppearance.isVisible = false
-        popupBinding.contactCommands.isVisible = mode == SearchMode.CONTACTS_ONLY
-        if (mode == SearchMode.CONTACTS_ONLY) {
+        popupBinding.contactCommands.isVisible = mode == SearchMode.CONTACTS_ONLY || mode == SearchMode.APPS_ONLY
+        if (mode == SearchMode.CONTACTS_ONLY || mode == SearchMode.APPS_ONLY) {
             val density = resources.displayMetrics.density
-            val commands = listOf(
-                Triple(ContactCommand.PHONE, R.drawable.ic_call, R.string.contact_command_phone),
-                Triple(ContactCommand.MESSAGE, R.drawable.ic_message, R.string.contact_command_message),
-                Triple(ContactCommand.WHATSAPP, R.drawable.ic_whatsapp, R.string.whatsapp),
-                Triple(ContactCommand.CONTACT, R.drawable.ic_person, R.string.contact_command_page),
+            val commands = if (mode == SearchMode.APPS_ONLY) listOf(
+                Triple(AppCommand.RENAME.letter, appCommandIcon(AppCommand.RENAME), R.string.rename),
+                Triple(AppCommand.INFO.letter, appCommandIcon(AppCommand.INFO), R.string.app_command_info),
+                Triple(AppCommand.PLAY_STORE.letter, appCommandIcon(AppCommand.PLAY_STORE), R.string.app_command_store),
+                Triple(AppCommand.UNINSTALL.letter, appCommandIcon(AppCommand.UNINSTALL), R.string.app_command_uninstall),
+            ) else listOf(
+                Triple(ContactCommand.PHONE.letter, R.drawable.ic_call, R.string.contact_command_phone),
+                Triple(ContactCommand.MESSAGE.letter, R.drawable.ic_message, R.string.contact_command_message),
+                Triple(ContactCommand.WHATSAPP.letter, R.drawable.ic_whatsapp, R.string.whatsapp),
+                Triple(ContactCommand.CONTACT.letter, R.drawable.ic_person, R.string.contact_command_page),
             )
             val commandGap = ((popupBinding.tileCount.parent as View).layoutParams as ViewGroup.MarginLayoutParams).topMargin
             commands.forEachIndexed { index, (command, icon, label) ->
                 val entry = TextView(requireContext()).apply {
                     text = getString(R.string.contact_command_menu_entry,
-                        command.letter.uppercaseChar().toString(), getString(label))
+                        command.uppercaseChar().toString(), getString(label))
                     textSize = 16f
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding((12 * density).toInt(), 0, (12 * density).toInt(), 0)
@@ -324,10 +352,11 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                     setCompoundDrawablesRelative(drawable, null, null, null)
                     setOnClickListener {
                         val query = currentQuery()
-                        val name = ContactCommandQuery.parse(query)?.name ?: query.trim()
+                        val name = if (mode == SearchMode.APPS_ONLY) AppCommandQuery.parse(query)?.name ?: query.trim()
+                            else ContactCommandQuery.parse(query)?.name ?: query.trim()
                         activePopupWindow?.dismiss()
-                        binding.search.setQuery("${command.letter} $name", false)
-                        updateCommandIndicator()
+                        binding.search.setQuery("$command $name", false)
+                        if (mode == SearchMode.APPS_ONLY) updateAppCommandChip() else updateCommandIndicator()
                         searchTextView?.requestFocus()
                         (requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
                             .showSoftInput(searchTextView, InputMethodManager.SHOW_IMPLICIT)
@@ -506,10 +535,15 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
 
     private fun rebuild() {
         if (_binding == null || !::adapter.isInitialized) return
-        if (mode == SearchMode.CONTACTS_ONLY && restoringCommandState) return
+        if (restoringCommandState) return
         val query = currentQuery()
         binding.emptyState.isVisible = false
         val generation = ++filterGeneration
+        if (mode == SearchMode.APPS_ONLY) {
+            appCommandJob?.cancel()
+            appCommandSession.update(query)
+            updateAppCommandChip()
+        }
         if (mode == SearchMode.CONTACTS_ONLY) {
             commandJob?.cancel()
             if (commandSession.query != query) {
@@ -553,6 +587,10 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                     } else scheduleContactCommand(query, items)
                     return@submitList
                 }
+                if (mode == SearchMode.APPS_ONLY && AppCommandQuery.parse(query) != null) {
+                    scheduleAppCommand(query, items)
+                    return@submitList
+                }
                 if (mode != SearchMode.APPS_ONLY || query.isBlank() || query.startsWith(" ") ||
                     query != currentQuery() || isSearchComposing() || query == autoLaunchedQuery
                 ) return@submitList
@@ -570,6 +608,122 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         val start = BaseInputConnection.getComposingSpanStart(text)
         val end = BaseInputConnection.getComposingSpanEnd(text)
         return start >= 0 && end > start
+    }
+
+    private fun appCommandIcon(command: AppCommand): Int = when (command) {
+        AppCommand.RENAME -> R.drawable.ic_rename
+        AppCommand.INFO -> R.drawable.ic_info
+        AppCommand.PLAY_STORE -> R.drawable.ic_search_web
+        AppCommand.UNINSTALL -> R.drawable.ic_delete
+    }
+
+    private fun updateAppCommandChip() {
+        val parsed = AppCommandQuery.parse(currentQuery())
+        val editable = searchTextView?.text as? Spannable ?: return
+        if (parsed?.command == displayedAppCommand && (parsed == null || appCommandChip?.let {
+                editable.getSpanStart(it) == 0 && editable.getSpanEnd(it) == 1
+            } == true)
+        ) return
+        appCommandChip?.let(editable::removeSpan)
+        appCommandChip = null
+        displayedAppCommand = parsed?.command
+        if (parsed != null) {
+            AppCommandChipSpan(requireContext(), parsed.command, appCommandIcon(parsed.command)).also {
+                editable.setSpan(it, 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                appCommandChip = it
+            }
+        }
+    }
+
+    private fun scheduleAppCommand(query: String, items: List<SearchItem>) {
+        appCommandJob?.cancel()
+        val matches = items.filterIsInstance<SearchItem.App>()
+        if (!appCommandSession.automaticCandidate(matches.size, appsReady,
+                viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED), isSearchComposing()) ||
+            activePopupWindow?.isShowing == true
+        ) return
+        appCommandJob = viewLifecycleOwner.lifecycleScope.launch {
+            delay(250)
+            if (_binding != null && currentQuery() == query && activePopupWindow?.isShowing != true &&
+                appCommandSession.automaticCandidate(
+                    adapter.currentList.filterIsInstance<SearchItem.App>().size, appsReady,
+                    viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED), isSearchComposing(),
+                )
+            ) executeAppCommand(matches.single().app, query)
+        }
+    }
+
+    private fun executeAppCommand(app: AppModel, query: String = currentQuery()) {
+        appCommandJob?.cancel()
+        val parsed = AppCommandQuery.parse(query) ?: return
+        if (query != currentQuery() || isSearchComposing() ||
+            !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) ||
+            !AppSearchMatcher(parsed.name).matches(app.appLabel) ||
+            adapter.currentList.filterIsInstance<SearchItem.App>().none { it.app == app }
+        ) return
+        if (!appCommandSession.claim(query)) return
+        activePopupWindow?.dismiss()
+        try {
+            when (parsed.command) {
+                AppCommand.RENAME -> showAppRename(app)
+                AppCommand.INFO -> openAppInfo(requireContext(), app.user, app.appPackage)
+                AppCommand.PLAY_STORE -> {
+                    val store = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${app.appPackage}"))
+                        .setPackage("com.android.vending")
+                    if (!startSafely(store) && !startSafely(Intent(Intent.ACTION_VIEW,
+                            Uri.parse("https://play.google.com/store/apps/details?id=${app.appPackage}"))))
+                        requireContext().showToast(R.string.unable_to_open_app)
+                }
+                AppCommand.UNINSTALL -> when {
+                    app !is AppModel.App -> requireContext().showToast(R.string.app_command_unsupported)
+                    app.user != android.os.Process.myUserHandle() -> {
+                        requireContext().showToast(R.string.app_command_profile_uninstall)
+                        openAppInfo(requireContext(), app.user, app.appPackage)
+                    }
+                    requireContext().isSystemApp(app.appPackage, app.user) -> {
+                        requireContext().showToast(R.string.system_app_cannot_delete)
+                        openAppInfo(requireContext(), app.user, app.appPackage)
+                    }
+                    !startSafely(Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.appPackage}"))) ->
+                        requireContext().showToast(R.string.unable_to_open_app)
+                }
+            }
+        } catch (_: SecurityException) {
+            requireContext().showToast(R.string.unable_to_open_app)
+        } catch (_: ActivityNotFoundException) {
+            requireContext().showToast(R.string.unable_to_open_app)
+        }
+    }
+
+    private fun showAppRename(app: AppModel) {
+        val identifier = when (app) {
+            is AppModel.App -> app.appPackage
+            is AppModel.PinnedShortcut -> app.identity
+            is AppModel.PrivateSpaceHeader -> return
+        }
+        renameDialog?.dismiss()
+        val input = androidx.appcompat.widget.AppCompatEditText(requireContext()).apply {
+            setText(app.appLabel)
+            setSelectAllOnFocus(true)
+            setSingleLine(true)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS
+            contentDescription = getString(R.string.rename)
+        }
+        renameDialog = requireContext().createDialog(
+            title = R.string.rename, action = R.string.save,
+            validate = {
+                val valid = input.text?.isNotBlank() == true
+                if (!valid) input.error = getString(R.string.app_command_name_required)
+                valid
+            },
+            onAction = {
+                prefs.setAppRenameLabel(identifier, input.text.toString().trim())
+                viewModel.getAppList()
+            },
+            content = { input },
+        ).also { it.showRespectingStatusBar() }
+        input.requestFocus()
+        renameDialog?.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
     }
 
     private fun updateCommandIndicator() {
@@ -663,7 +817,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         titles: Titles,
     ): List<SearchItem> {
         val commandQuery = if (mode == SearchMode.CONTACTS_ONLY) ContactCommandQuery.parse(query) else null
-        val q = commandQuery?.name ?: query.trim()
+        val appQuery = if (mode == SearchMode.APPS_ONLY) AppCommandQuery.parse(query) else null
+        val q = appQuery?.name ?: commandQuery?.name ?: query.trim()
         val matcher = AppSearchMatcher(q)
         val coroutineContext = currentCoroutineContext()
         val showHeaders = mode == SearchMode.ALL_SEARCH
@@ -715,6 +870,11 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     private fun submit(text: String) {
+        if (mode == SearchMode.APPS_ONLY && AppCommandQuery.parse(text) != null) {
+            appCommandJob?.cancel()
+            adapter.currentList.filterIsInstance<SearchItem.App>().singleOrNull()?.let { executeAppCommand(it.app, text) }
+            return
+        }
         if (mode == SearchMode.CONTACTS_ONLY && ContactCommandQuery.parse(text) != null) {
             commandJob?.cancel()
             commandSubmitQuery = text
@@ -778,11 +938,19 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     override fun onAppClick(app: AppModel) {
+        if (mode == SearchMode.APPS_ONLY && AppCommandQuery.parse(currentQuery()) != null) {
+            executeAppCommand(app)
+            return
+        }
         viewModel.selectedApp(app, Constants.FLAG_LAUNCH_APP)
         closeSearch()
     }
 
     override fun onAppLongClick(app: AppModel) {
+        if (mode == SearchMode.APPS_ONLY) {
+            appCommandJob?.cancel()
+            if (AppCommandQuery.parse(currentQuery()) != null) appCommandSession.consumed = true
+        }
         openAppInfo(requireContext(), app.user, app.appPackage)
     }
 
@@ -923,10 +1091,14 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
 
     override fun onResume() {
         super.onResume()
-        if (mode == SearchMode.CONTACTS_ONLY) rebuild()
+        if (mode == SearchMode.CONTACTS_ONLY || mode == SearchMode.APPS_ONLY) rebuild()
     }
 
     override fun onPause() {
+        if (mode == SearchMode.APPS_ONLY) {
+            appCommandJob?.cancel()
+            if (AppCommandQuery.parse(currentQuery()) != null) appCommandSession.consumed = true
+        }
         if (mode == SearchMode.CONTACTS_ONLY) {
             cancelAutomaticCommand()
         }
@@ -934,6 +1106,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("appCommandQuery", appCommandSession.query)
+        outState.putBoolean("appCommandConsumed", appCommandSession.consumed)
         outState.putString("contactCommandQuery", commandSession.query)
         outState.putBoolean("contactCommandConsumed", commandSession.consumed)
         super.onSaveInstanceState(outState)
@@ -950,6 +1124,10 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     override fun onDestroyView() {
+        appCommandJob?.cancel()
+        renameDialog?.dismiss()
+        renameDialog = null
+        appCommandChip = null
         commandJob?.cancel()
         commandExecutor?.cancel()
         commandExecutor = null

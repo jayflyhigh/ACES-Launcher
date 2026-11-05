@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 class ContactCommandTestActivity : FragmentActivity() {
     var whatsappAvailable = true
     var dialerAvailable = true
+    var playStoreAvailable = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(app.olauncher.R.style.AppTheme)
@@ -31,9 +32,16 @@ class ContactCommandTestActivity : FragmentActivity() {
 
     override fun startActivity(intent: Intent) {
         if ((!whatsappAvailable && intent.`package`?.startsWith("com.whatsapp") == true) ||
-            (!dialerAvailable && intent.action == Intent.ACTION_DIAL)
+            (!dialerAvailable && intent.action == Intent.ACTION_DIAL) ||
+            (!playStoreAvailable && intent.`package` == "com.android.vending")
         ) throw ActivityNotFoundException("Test app unavailable")
         super.startActivity(intent)
+    }
+
+    override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+        if (!playStoreAvailable && intent.`package` == "com.android.vending")
+            throw ActivityNotFoundException("Test Play Store unavailable")
+        super.startActivityForResult(intent, requestCode, options)
     }
 }
 
