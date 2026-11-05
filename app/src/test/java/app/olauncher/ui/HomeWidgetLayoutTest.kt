@@ -36,7 +36,11 @@ class HomeWidgetLayoutTest {
         assertEquals("a", (periodTile.getChildAt(0) as TextClock).format24Hour.toString())
         assertEquals("EEE, MMM dd", widget.findViewById<TextClock>(R.id.widgetDate).format12Hour.toString())
         assertEquals("EEE, MMM dd", widget.findViewById<TextClock>(R.id.widgetDate).format24Hour.toString())
-        assertNotNull(widget.findViewById<View>(R.id.widgetBatteryIcon))
+        val batteryIcon = widget.findViewById<View>(R.id.widgetBatteryIcon)
+        assertNotNull(batteryIcon)
+        assertEquals(24, batteryIcon.layoutParams.width)
+        assertEquals(24, batteryIcon.layoutParams.height)
+        assertEquals(15f, widget.findViewById<android.widget.TextView>(R.id.widgetBatteryPercent).textSize, 0f)
     }
 
     @Test

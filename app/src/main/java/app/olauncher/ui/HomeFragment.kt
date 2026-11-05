@@ -53,9 +53,6 @@ import app.olauncher.helper.showToast
 import app.olauncher.listener.OnSwipeTouchListener
 import app.olauncher.listener.ViewSwipeTouchListener
 import app.olauncher.ui.quickactions.QuickActionsMenu
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlin.math.max
 
 class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListener {
@@ -425,21 +422,7 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
     }
 
     private fun populateDateTime() {
-        binding.dateTimeLayout.isVisible = prefs.dateTimeVisibility != Constants.DateTime.OFF
-        binding.clock.isVisible = Constants.DateTime.isTimeVisible(prefs.dateTimeVisibility)
-        binding.date.isVisible = Constants.DateTime.isDateVisible(prefs.dateTimeVisibility)
-
-//        var dateText = SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(Date())
-        val dateFormat = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
-        var dateText = dateFormat.format(Date())
-
-        if (!prefs.showStatusBar) {
-            val battery = (requireContext().getSystemService(Context.BATTERY_SERVICE) as BatteryManager)
-                .getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-            if (battery > 0)
-                dateText = getString(R.string.day_battery, dateText, battery)
-        }
-        binding.date.text = dateText.replace(".,", ",")
+        binding.dateTimeLayout.isVisible = false
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)

@@ -407,6 +407,8 @@ class SearchRedesignTest {
             assertEquals(android.content.Intent.ACTION_DELETE, intent.action)
             assertEquals("package:com.android.chrome", intent.dataString)
             assertNotNull(activity.packageManager.getPackageInfo(app.appPackage, 0))
+            assertTrue(fragment.isAdded)
+            assertEquals("u chrome", fragment.requireView().findViewById<SearchView>(R.id.search).query.toString())
         }
     }
 
