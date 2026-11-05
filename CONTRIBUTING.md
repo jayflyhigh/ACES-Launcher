@@ -19,7 +19,8 @@ request fits that goal; some niche features are kept hidden rather than exposed 
 
 ## Downloading a debug APK
 
-- Pushes, merges, and pull requests to `main` automatically run **Build debug APK** in GitHub Actions.
+- Pushes, merges, and pull requests to `main` or `master` (the current default branch)
+  automatically run **Build debug APK** in GitHub Actions.
   To build manually, open **Actions → Build debug APK → Run workflow**.
   The manual option becomes available once the workflow is on the default branch.
 - Open a successful run and download **ACES-Launcher-Debug-APK** from **Artifacts**.
