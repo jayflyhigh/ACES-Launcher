@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
 import android.os.Build
+import android.os.SystemClock
 import android.os.UserHandle
 import android.os.UserManager
 import androidx.lifecycle.AndroidViewModel
@@ -57,6 +58,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val homeAppAlignment = MutableLiveData<Int>()
     val screenTimeValue = MutableLiveData<String>()
     private var screenTimeJob: Job? = null
+    private var appListJob: Job? = null
+    private var appListRequest = 0L
+    private var lastAppListLoadedAt = 0L
 
     val privateSpaceApps = MutableLiveData<List<AppModel>?>()
     val privateSpaceLocked = MutableLiveData<Boolean>()
@@ -436,11 +440,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun getAppList(includeHiddenApps: Boolean = false) {
-        viewModelScope.launch {
+        val request = ++appListRequest
+        appListJob?.cancel()
+        appListJob = viewModelScope.launch {
             val apps = getAppsList(appContext, prefs, includeRegularApps = true, includeHiddenApps)
-            appList.value = apps
+            if (request != appListRequest) return@launch
+            if (appList.value != apps) appList.value = apps
+            lastAppListLoadedAt = SystemClock.elapsedRealtime()
         }
         getPrivateSpaceAppList()
+    }
+
+    fun getAppListIfStale(maxAgeMillis: Long = APP_LIST_CACHE_MILLIS) {
+        val age = SystemClock.elapsedRealtime() - lastAppListLoadedAt
+        if (appList.value == null || age >= maxAgeMillis) getAppList()
+        else getPrivateSpaceAppList()
     }
 
     fun getHiddenApps() {
@@ -568,5 +582,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 e.printStackTrace()
             }
         }
+    }
+
+    private companion object {
+        const val APP_LIST_CACHE_MILLIS = 30_000L
     }
 }

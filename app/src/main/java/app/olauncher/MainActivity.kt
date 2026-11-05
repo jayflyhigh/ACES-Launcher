@@ -145,26 +145,38 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         isResumed = true
         viewModel.isPrivateSpaceToggling = false
-        viewModel.getAppList()
+        viewModel.getAppListIfStale()
     }
 
     private fun registerShortcutCallback() {
         val launcherApps = getSystemService(LauncherApps::class.java)
         launcherAppsCallback = object : LauncherApps.Callback() {
-            override fun onPackageRemoved(packageName: String, user: android.os.UserHandle) = Unit
-            override fun onPackageAdded(packageName: String, user: android.os.UserHandle) = Unit
-            override fun onPackageChanged(packageName: String, user: android.os.UserHandle) = Unit
+            override fun onPackageRemoved(packageName: String, user: android.os.UserHandle) {
+                viewModel.getAppList()
+            }
+
+            override fun onPackageAdded(packageName: String, user: android.os.UserHandle) {
+                viewModel.getAppList()
+            }
+
+            override fun onPackageChanged(packageName: String, user: android.os.UserHandle) {
+                viewModel.getAppList()
+            }
             override fun onPackagesAvailable(
                 packageNames: Array<out String>,
                 user: android.os.UserHandle,
                 replacing: Boolean,
-            ) = Unit
+            ) {
+                viewModel.getAppList()
+            }
 
             override fun onPackagesUnavailable(
                 packageNames: Array<out String>,
                 user: android.os.UserHandle,
                 replacing: Boolean,
-            ) = Unit
+            ) {
+                viewModel.getAppList()
+            }
 
             override fun onShortcutsChanged(
                 packageName: String,
