@@ -96,4 +96,12 @@
         android:src="@drawable/ic_search_more"
         android:tint="@color/search_secondary"
         android:contentDescription="@string/search_page_menu" />
+
+    <androidx.appcompat.widget.AppCompatCheckBox
+        android:id="@+id/massUninstallCheck"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:buttonTint="@color/search_accent"
+        android:contentDescription="@string/mass_uninstall_select"
+        android:visibility="gone" />
 </LinearLayout>

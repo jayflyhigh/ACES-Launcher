@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.drawable.ColorDrawable
+import android.content.Intent
 import android.os.Bundle
 import android.os.Looper
 import android.os.Process
@@ -397,15 +398,15 @@ class SearchRedesignTest {
             val search = root.findViewById<SearchView>(R.id.search)
             val list = root.findViewById<RecyclerView>(R.id.recyclerView)
             assertEquals(View.GONE, list.getChildAt(0).findViewById<View>(R.id.itemMenu).visibility)
-            val labels = listOf("R - Rename", "I - Open app info", "P - Go to Play Store", "U - Uninstall")
-            for (command in AppCommand.entries + AppCommand.UNINSTALL) {
+            val labels = listOf("R - Rename", "I - Open app info", "P - Go to Play Store", "U - Uninstall", "MU - Mass uninstall")
+            for (command in AppCommand.entries) {
                 root.findViewById<View>(R.id.searchPageMenu).performClick()
                 val popupField = UniversalSearchFragment::class.java.getDeclaredField("activePopupWindow").apply { isAccessible = true }
                 val popup = popupField.get(fragment) as PopupWindow
                 val group = popup.contentView.findViewById<android.widget.LinearLayout>(R.id.contactCommands)
                 assertNotNull((popup.contentView as android.view.ViewGroup).getChildAt(0).findViewById<View>(R.id.tileCount))
                 val gap = fragment.resources.getDimensionPixelSize(R.dimen.search_menu_item_gap)
-                assertEquals(4, group.childCount)
+                assertEquals(5, group.childCount)
                 for (index in labels.indices) {
                     val entry = group.getChildAt(index) as TextView
                     assertEquals(labels[index], entry.text.toString())
@@ -414,16 +415,112 @@ class SearchRedesignTest {
                         (entry.layoutParams as android.view.ViewGroup.MarginLayoutParams).topMargin)
                 }
                 group.getChildAt(AppCommand.entries.indexOf(command)).performClick()
-                assertEquals("${command.letter} ", search.query.toString())
+                assertEquals("${command.code} ", search.query.toString())
                 val editor = root.findViewById<TextView>(R.id.search_src_text)
                 val text = editor.text as android.text.Spanned
                 assertEquals(1, text.getSpans(0, 1, AppCommandChipSpan::class.java).size)
                 assertNull(shadowOf(activity).peekNextStartedActivity())
             }
             val editor = root.findViewById<android.widget.EditText>(R.id.search_src_text)
-            editor.text.delete(0, 1)
+            editor.text.clear()
             assertTrue(editor.text.getSpans(0, editor.length(), AppCommandChipSpan::class.java).isEmpty())
             assertNull(AppCommandQuery.parse(search.query.toString()))
+        }
+    }
+
+    @Test
+    fun `mass uninstall selection persists across filtering and waits for explicit action`() {
+        withPage(SearchMode.APPS_ONLY) { activity, fragment, vm ->
+            val second = app.copy(appLabel = "Calendar", appPackage = "com.example.calendar")
+            for (targetPackage in listOf(app.appPackage, second.appPackage)) {
+                shadowOf(activity.packageManager).installPackage(android.content.pm.PackageInfo().apply {
+                    packageName = targetPackage
+                    applicationInfo = android.content.pm.ApplicationInfo().apply {
+                        packageName = targetPackage
+                        flags = 0
+                    }
+                })
+            }
+            vm.appList.value = listOf(app, second)
+            val root = fragment.requireView()
+            val search = root.findViewById<SearchView>(R.id.search)
+            val list = root.findViewById<RecyclerView>(R.id.recyclerView)
+            val adapter = list.adapter as SearchResultsAdapter
+            search.setQuery("mu ", false)
+            awaitCommand { adapter.currentList.filterIsInstance<SearchItem.App>().size == 2 }
+            shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(1))
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+            layout(fragment)
+            val selectedPosition = adapter.currentList.indexOfFirst {
+                it is SearchItem.App && it.app.appPackage == app.appPackage
+            }
+            list.findViewHolderForAdapterPosition(selectedPosition)!!.itemView
+                .findViewById<android.widget.CheckBox>(R.id.massUninstallCheck).performClick()
+            val action = root.findViewById<TextView>(R.id.massUninstallAction)
+            assertEquals(View.VISIBLE, action.visibility)
+            assertEquals("Uninstall 1 selected", action.text.toString())
+
+            search.setQuery("mu calendar", false)
+            awaitCommand { adapter.currentList.filterIsInstance<SearchItem.App>().singleOrNull()?.app == second }
+            layout(fragment)
+            assertFalse(list.findViewHolderForAdapterPosition(0)!!.itemView
+                .findViewById<android.widget.CheckBox>(R.id.massUninstallCheck).isChecked)
+
+            search.setQuery("mu ", false)
+            awaitCommand { adapter.currentList.filterIsInstance<SearchItem.App>().size == 2 }
+            layout(fragment)
+            val restoredPosition = adapter.currentList.indexOfFirst {
+                it is SearchItem.App && it.app.appPackage == app.appPackage
+            }
+            assertTrue(list.findViewHolderForAdapterPosition(restoredPosition)!!.itemView
+                .findViewById<android.widget.CheckBox>(R.id.massUninstallCheck).isChecked)
+            val secondPosition = adapter.currentList.indexOfFirst {
+                it is SearchItem.App && it.app.appPackage == second.appPackage
+            }
+            list.findViewHolderForAdapterPosition(secondPosition)!!.itemView
+                .findViewById<android.widget.CheckBox>(R.id.massUninstallCheck).performClick()
+            assertEquals("Uninstall 2 selected", action.text.toString())
+            action.performClick()
+            val dialogField = UniversalSearchFragment::class.java.getDeclaredField("massUninstallDialog").apply {
+                isAccessible = true
+            }
+            val confirmation = dialogField.get(fragment) as androidx.appcompat.app.AlertDialog
+            assertTrue(confirmation.isShowing)
+            assertEquals("Uninstall 2 apps? Android will ask you to confirm each app.",
+                confirmation.findViewById<TextView>(android.R.id.message)!!.text.toString())
+            assertNull(shadowOf(activity).peekNextStartedActivity())
+            (confirmation as androidx.appcompat.app.AlertDialog)
+                .getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).performClick()
+        }
+    }
+
+    @Test
+    fun `mass uninstall activity advances to the next package after Android confirms removal`() {
+        withPage(SearchMode.APPS_ONLY) { activity, _, _ ->
+            val packages = listOf("com.example.first", "com.example.second")
+            packages.forEach { packageName ->
+                shadowOf(activity.packageManager).installPackage(android.content.pm.PackageInfo().apply {
+                    this.packageName = packageName
+                    applicationInfo = android.content.pm.ApplicationInfo().apply {
+                        this.packageName = packageName
+                        flags = 0
+                    }
+                })
+            }
+            val queueIntent = Intent(activity, MassUninstallActivity::class.java).apply {
+                putStringArrayListExtra("packages", ArrayList(packages))
+            }
+            val controller = Robolectric.buildActivity(MassUninstallActivity::class.java, queueIntent).setup()
+            val queueActivity = controller.get()
+            val firstRequest = shadowOf(queueActivity).nextStartedActivityForResult
+            assertEquals(android.content.Intent.ACTION_DELETE, firstRequest.intent.action)
+            assertEquals("package:${packages.first()}", firstRequest.intent.dataString)
+
+            queueActivity.handleUninstallResult(android.app.Activity.RESULT_OK)
+            val secondRequest = shadowOf(queueActivity).nextStartedActivityForResult
+            assertEquals(android.content.Intent.ACTION_DELETE, secondRequest.intent.action)
+            assertEquals("package:${packages.last()}", secondRequest.intent.dataString)
+            controller.pause().stop().destroy()
         }
     }
 
@@ -609,11 +706,12 @@ class SearchRedesignTest {
             val root = fragment.requireView()
             val search = root.findViewById<SearchView>(R.id.search)
             for (width in listOf(320, 400)) for (command in AppCommand.entries) {
-                search.setQuery("${command.letter} ", false)
+                search.setQuery("${command.code} ", false)
                 layout(fragment, width = width)
                 val editor = root.findViewById<TextView>(R.id.search_src_text)
                 val text = editor.text as android.text.Spanned
                 val chip = text.getSpans(0, 1, AppCommandChipSpan::class.java).single()
+                assertEquals(command.code.length, text.getSpanEnd(chip))
                 assertTrue(chip.drawable.bounds.width() < editor.width)
                 assertTrue(chip.drawable.bounds.height() <= editor.height - editor.paddingTop - editor.paddingBottom)
                 val image = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
@@ -635,7 +733,7 @@ class SearchRedesignTest {
             val search = root.findViewById<SearchView>(R.id.search)
             val adapter = root.findViewById<RecyclerView>(R.id.recyclerView).adapter as SearchResultsAdapter
             for (command in AppCommand.entries) {
-                search.setQuery("${command.letter} chrome", false)
+                search.setQuery("${command.code} chrome", false)
                 awaitCommand { adapter.currentList.none { it is SearchItem.App } }
                 val text = root.findViewById<TextView>(R.id.search_src_text).text as android.text.Spanned
                 assertTrue(text.getSpans(0, text.length, AppCommandChipSpan::class.java).isEmpty())

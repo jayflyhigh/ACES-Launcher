@@ -12,18 +12,20 @@ import androidx.core.content.ContextCompat
 import app.olauncher.R
 import app.olauncher.data.AppCommand
 
-internal open class SearchCommandChipSpan(context: Context, letter: Char, icon: Int) :
-    ImageSpan(chip(context, letter, icon), ALIGN_BOTTOM)
+internal open class SearchCommandChipSpan(context: Context, code: String, icon: Int) :
+    ImageSpan(chip(context, code, icon), ALIGN_BOTTOM) {
+    constructor(context: Context, letter: Char, icon: Int) : this(context, letter.toString(), icon)
+}
 
 internal class AppCommandChipSpan(context: Context, command: AppCommand, icon: Int) :
-    SearchCommandChipSpan(context, command.letter, icon)
+    SearchCommandChipSpan(context, command.code, icon)
 
 internal class EngineEditChipSpan(context: Context, icon: Int) :
     SearchCommandChipSpan(context, 'e', icon)
 
-private fun chip(context: Context, letter: Char, icon: Int): BitmapDrawable {
+private fun chip(context: Context, code: String, icon: Int): BitmapDrawable {
     val density = context.resources.displayMetrics.density
-    val width = (52 * density).toInt().coerceAtLeast(1)
+    val width = ((if (code.length > 1) 64 else 52) * density).toInt().coerceAtLeast(1)
     val height = (26 * density).toInt().coerceAtLeast(1)
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
@@ -43,9 +45,11 @@ private fun chip(context: Context, letter: Char, icon: Int): BitmapDrawable {
     }
     paint.style = Paint.Style.FILL
     paint.color = Color.WHITE
-    paint.textSize = 12 * context.resources.displayMetrics.scaledDensity
+    val textX = if (code.length > 1) 29 * density else 31 * density
+    val textSize = if (code.length > 1) 10 else 12
+    paint.textSize = textSize * context.resources.displayMetrics.scaledDensity
     paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-    canvas.drawText(letter.uppercaseChar().toString(), 31 * density,
+    canvas.drawText(code.uppercase(), textX,
         height / 2f - (paint.ascent() + paint.descent()) / 2, paint)
     return BitmapDrawable(context.resources, bitmap).apply { setBounds(0, 0, width, height) }
 }

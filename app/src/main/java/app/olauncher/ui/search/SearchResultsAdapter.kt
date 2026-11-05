@@ -42,6 +42,7 @@ sealed class SearchItem {
 interface SearchActions {
     fun onAppClick(app: AppModel)
     fun onAppLongClick(app: AppModel)
+    fun onMassUninstallToggle(app: AppModel.App) {}
     fun onContactClick(contact: Contact)
     fun onContactTileClick(contact: Contact, anchor: View)
     fun onContactLongClick(contact: Contact)
@@ -78,6 +79,20 @@ class SearchResultsAdapter(
 
     fun close() = iconScope.cancel()
 
+    private var massUninstallEnabled = false
+    private var massUninstallSelection: Set<String> = emptySet()
+
+    fun setMassUninstallState(enabled: Boolean, selection: Set<String>) {
+        if (massUninstallEnabled == enabled && massUninstallSelection == selection) return
+        massUninstallEnabled = enabled
+        massUninstallSelection = selection
+        if (itemCount > 0) notifyItemRangeChanged(0, itemCount)
+    }
+
+    fun refreshMassUninstallSelection() {
+        if (itemCount > 0) notifyItemRangeChanged(0, itemCount)
+    }
+
     override fun getItemViewType(position: Int) = when (getItem(position)) {
         is SearchItem.Header -> TYPE_HEADER
         else -> TYPE_RESULT
@@ -106,6 +121,7 @@ class SearchResultsAdapter(
             binding.itemTitle.alpha = 1f
             binding.itemType.isVisible = true
             binding.contactActions.isVisible = false
+            binding.massUninstallCheck.isVisible = false
             binding.itemMenu.isVisible = (item is SearchItem.App && !appCommandsEnabled) ||
                 (item is SearchItem.Engine && engineOverflowEnabled)
             binding.root.setOnLongClickListener(null)
@@ -117,7 +133,18 @@ class SearchResultsAdapter(
                         if (item.app is AppModel.PinnedShortcut) R.string.search_type_shortcut else R.string.search_type_app,
                     )
                     loadIcon(item.app)
-                    binding.root.setOnClickListener { actions.onAppClick(item.app) }
+                    val uninstallTarget = item.app as? AppModel.App
+                    binding.massUninstallCheck.isVisible = massUninstallEnabled && uninstallTarget != null
+                    binding.massUninstallCheck.isEnabled = uninstallTarget != null
+                    binding.massUninstallCheck.setOnCheckedChangeListener(null)
+                    binding.massUninstallCheck.isChecked = uninstallTarget?.let(::appKey)?.let(massUninstallSelection::contains) == true
+                    binding.massUninstallCheck.setOnClickListener {
+                        uninstallTarget?.let(actions::onMassUninstallToggle)
+                    }
+                    binding.root.setOnClickListener {
+                        if (massUninstallEnabled) uninstallTarget?.let(actions::onMassUninstallToggle)
+                        else actions.onAppClick(item.app)
+                    }
                     binding.root.setOnLongClickListener {
                         actions.onAppLongClick(item.app)
                         true
@@ -177,6 +204,8 @@ class SearchResultsAdapter(
             binding.itemMenu.setOnClickListener { actions.onResultMenu(item, it) }
         }
     }
+
+    private fun appKey(app: AppModel.App) = "${app.appPackage}|${app.user}"
 
     private class HeaderHolder(val binding: ItemSearchHeaderBinding) : RecyclerView.ViewHolder(binding.root)
     private inner class AppHolder(val binding: ItemSearchAppBinding) : RecyclerView.ViewHolder(binding.root) {

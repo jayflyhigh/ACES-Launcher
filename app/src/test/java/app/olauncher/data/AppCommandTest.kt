@@ -7,9 +7,9 @@ class AppCommandTest {
     @Test
     fun `commands require a space and accept either case`() {
         for (command in AppCommand.entries) {
-            for (letter in listOf(command.letter, command.letter.uppercaseChar())) {
-                assertEquals(AppCommandQuery(command, "Maps"), AppCommandQuery.parse("$letter  Maps "))
-                assertNull(AppCommandQuery.parse("${letter}Maps"))
+            for (code in listOf(command.code, command.code.uppercase())) {
+                assertEquals(AppCommandQuery(command, "Maps"), AppCommandQuery.parse("$code  Maps "))
+                assertNull(AppCommandQuery.parse("${code}Maps"))
             }
         }
         assertNull(AppCommandQuery.parse("x Maps"))
@@ -26,6 +26,8 @@ class AppCommandTest {
         assertFalse(session.automaticCandidate(1, true, false, false))
         assertFalse(session.automaticCandidate(1, true, true, true))
         session.update("r ")
+        assertFalse(session.automaticCandidate(1, true, true, false))
+        session.update("mu maps")
         assertFalse(session.automaticCandidate(1, true, true, false))
     }
 

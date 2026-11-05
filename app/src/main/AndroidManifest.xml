@@ -86,6 +86,14 @@
             </intent-filter>
         </receiver>
 
+        <activity
+            android:name=".ui.search.MassUninstallActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <service
             android:name=".helper.MyAccessibilityService"
             android:exported="false"

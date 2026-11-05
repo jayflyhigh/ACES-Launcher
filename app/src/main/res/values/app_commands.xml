@@ -2,8 +2,19 @@
     <string name="app_command_info">Open app info</string>
     <string name="app_command_store">Go to Play Store</string>
     <string name="app_command_uninstall">Uninstall</string>
+    <string name="app_command_mass_uninstall">Mass uninstall</string>
+    <string name="mass_uninstall_action">Uninstall %1$d selected</string>
+    <string name="mass_uninstall_select">Select app for mass uninstall</string>
+    <string name="mass_uninstall_empty">Select one or more apps to uninstall</string>
+    <string name="mass_uninstall_unsupported">System apps and apps in other profiles cannot be mass-uninstalled here.</string>
+    <string name="mass_uninstall_stopped">Uninstalling stopped; remaining apps were left installed.</string>
+    <string name="mass_uninstall_complete">All selected apps were uninstalled.</string>
     <string name="app_command_engine_edit">Edit</string>
     <string name="app_command_unsupported">This action is unavailable for this result.</string>
     <string name="app_command_profile_uninstall">Use this profile\'s app-info page to uninstall the app.</string>
     <string name="app_command_name_required">Enter an app name</string>
+    <plurals name="mass_uninstall_confirm">
+        <item quantity="one">Uninstall this app? Android will ask you to confirm.</item>
+        <item quantity="other">Uninstall %1$d apps? Android will ask you to confirm each app.</item>
+    </plurals>
 </resources>

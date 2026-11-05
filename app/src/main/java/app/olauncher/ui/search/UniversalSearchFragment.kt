@@ -115,8 +115,12 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private var appCommandJob: Job? = null
     private var appCommandChip: AppCommandChipSpan? = null
     private var displayedAppCommand: AppCommand? = null
+    private val massUninstallSelection = linkedMapOf<String, AppModel.App>()
+    private var pendingMassUninstallKeys: Set<String> = emptySet()
+    private var massUninstallMode = false
     private var engineEditChip: EngineEditChipSpan? = null
     private var renameDialog: OlDialog? = null
+    private var massUninstallDialog: androidx.appcompat.app.AlertDialog? = null
     private var appsReady = false
     private val contactsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) { viewModel.loadContacts() }
@@ -163,6 +167,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                     savedInstanceState.getString("appCommandQuery").orEmpty(),
                     savedInstanceState.getBoolean("appCommandConsumed"),
                 )
+                pendingMassUninstallKeys = savedInstanceState.getStringArrayList("massUninstallSelection")?.toSet().orEmpty()
             }
         }
         if (mode == SearchMode.CONTACTS_ONLY) {
@@ -244,6 +249,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             }
         })
         binding.searchPageMenu.setOnClickListener { toggleSearchPageMenu() }
+        binding.massUninstallAction.setOnClickListener { confirmMassUninstall() }
     }
 
     private fun initRecyclerView() {
@@ -294,6 +300,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             viewModel.appList.observe(viewLifecycleOwner) {
                 appsReady = it != null
                 apps = it.orEmpty().filter { app -> app !is AppModel.PrivateSpaceHeader && app.appPackage.isNotEmpty() }
+                restoreMassUninstallSelection()
                 rebuild()
             }
             viewModel.privateSpaceLocked.observe(viewLifecycleOwner) {
@@ -302,6 +309,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             }
             viewModel.privateSpaceApps.observe(viewLifecycleOwner) {
                 privateApps = it.orEmpty()
+                restoreMassUninstallSelection()
                 rebuild()
             }
         }
@@ -329,23 +337,24 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         if (mode == SearchMode.CONTACTS_ONLY || mode == SearchMode.APPS_ONLY || mode == SearchMode.ENGINES_ONLY) {
             val density = resources.displayMetrics.density
             val commands = if (mode == SearchMode.APPS_ONLY) listOf(
-                Triple(AppCommand.RENAME.letter, appCommandIcon(AppCommand.RENAME), R.string.rename),
-                Triple(AppCommand.INFO.letter, appCommandIcon(AppCommand.INFO), R.string.app_command_info),
-                Triple(AppCommand.PLAY_STORE.letter, appCommandIcon(AppCommand.PLAY_STORE), R.string.app_command_store),
-                Triple(AppCommand.UNINSTALL.letter, appCommandIcon(AppCommand.UNINSTALL), R.string.app_command_uninstall),
+                Triple(AppCommand.RENAME.code, appCommandIcon(AppCommand.RENAME), R.string.rename),
+                Triple(AppCommand.INFO.code, appCommandIcon(AppCommand.INFO), R.string.app_command_info),
+                Triple(AppCommand.PLAY_STORE.code, appCommandIcon(AppCommand.PLAY_STORE), R.string.app_command_store),
+                Triple(AppCommand.UNINSTALL.code, appCommandIcon(AppCommand.UNINSTALL), R.string.app_command_uninstall),
+                Triple(AppCommand.MASS_UNINSTALL.code, appCommandIcon(AppCommand.MASS_UNINSTALL), R.string.app_command_mass_uninstall),
             ) else if (mode == SearchMode.ENGINES_ONLY) listOf(
-                Triple('e', R.drawable.ic_rename, R.string.app_command_engine_edit),
+                Triple("e", R.drawable.ic_rename, R.string.app_command_engine_edit),
             ) else listOf(
-                Triple(ContactCommand.PHONE.letter, R.drawable.ic_call, R.string.contact_command_phone),
-                Triple(ContactCommand.MESSAGE.letter, R.drawable.ic_message, R.string.contact_command_message),
-                Triple(ContactCommand.WHATSAPP.letter, R.drawable.ic_whatsapp, R.string.whatsapp),
-                Triple(ContactCommand.CONTACT.letter, R.drawable.ic_person, R.string.contact_command_page),
+                Triple(ContactCommand.PHONE.letter.toString(), R.drawable.ic_call, R.string.contact_command_phone),
+                Triple(ContactCommand.MESSAGE.letter.toString(), R.drawable.ic_message, R.string.contact_command_message),
+                Triple(ContactCommand.WHATSAPP.letter.toString(), R.drawable.ic_whatsapp, R.string.whatsapp),
+                Triple(ContactCommand.CONTACT.letter.toString(), R.drawable.ic_person, R.string.contact_command_page),
             )
             val commandGap = resources.getDimensionPixelSize(R.dimen.search_menu_item_gap)
             commands.forEachIndexed { index, (command, icon, label) ->
                 val entry = TextView(requireContext()).apply {
                     text = getString(R.string.contact_command_menu_entry,
-                        command.uppercaseChar().toString(), getString(label))
+                        command.uppercase(), getString(label))
                     textSize = 16f
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding((12 * density).toInt(), 0, (12 * density).toInt(), 0)
@@ -555,6 +564,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             appCommandJob?.cancel()
             appCommandSession.update(query)
             updateAppCommandChip()
+            updateMassUninstallUi(AppCommandQuery.parse(query)?.command == AppCommand.MASS_UNINSTALL)
         } else if (mode == SearchMode.ENGINES_ONLY) {
             updateEngineEditChip()
         }
@@ -629,13 +639,15 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         AppCommand.INFO -> R.drawable.ic_info
         AppCommand.PLAY_STORE -> R.drawable.ic_play_store
         AppCommand.UNINSTALL -> R.drawable.ic_delete
+        AppCommand.MASS_UNINSTALL -> R.drawable.ic_delete
     }
 
     private fun updateAppCommandChip() {
         val parsed = AppCommandQuery.parse(currentQuery())
         val editable = searchTextView?.text as? Spannable ?: return
+        val spanEnd = parsed?.command?.code?.length ?: 1
         if (parsed?.command == displayedAppCommand && (parsed == null || appCommandChip?.let {
-                editable.getSpanStart(it) == 0 && editable.getSpanEnd(it) == 1
+            editable.getSpanStart(it) == 0 && editable.getSpanEnd(it) == spanEnd
             } == true)
         ) return
         appCommandChip?.let(editable::removeSpan)
@@ -643,7 +655,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         displayedAppCommand = parsed?.command
         if (parsed != null) {
             AppCommandChipSpan(requireContext(), parsed.command, appCommandIcon(parsed.command)).also {
-                editable.setSpan(it, 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                editable.setSpan(it, 0, parsed.command.code.length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
                 appCommandChip = it
             }
         }
@@ -718,12 +730,74 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                     !startSafely(Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.appPackage}"))) ->
                         requireContext().showToast(R.string.unable_to_open_app)
                 }
+                AppCommand.MASS_UNINSTALL -> updateMassUninstallUi(true)
             }
         } catch (_: SecurityException) {
             requireContext().showToast(R.string.unable_to_open_app)
         } catch (_: ActivityNotFoundException) {
             requireContext().showToast(R.string.unable_to_open_app)
         }
+    }
+
+    private fun appKey(app: AppModel.App): String = "${app.appPackage}|${app.user}"
+
+    private fun restoreMassUninstallSelection() {
+        if (pendingMassUninstallKeys.isEmpty()) return
+        val available = (apps + privateApps).filterIsInstance<AppModel.App>().associateBy(::appKey)
+        pendingMassUninstallKeys.forEach { key -> available[key]?.let { massUninstallSelection[key] = it } }
+        pendingMassUninstallKeys = pendingMassUninstallKeys - massUninstallSelection.keys
+        updateMassUninstallUi()
+    }
+
+    private fun updateMassUninstallUi(enabled: Boolean = massUninstallMode) {
+        massUninstallMode = enabled && mode == SearchMode.APPS_ONLY
+        if (!::adapter.isInitialized || _binding == null) return
+        adapter.setMassUninstallState(massUninstallMode, massUninstallSelection.keys)
+        binding.massUninstallAction.apply {
+            isVisible = massUninstallMode && massUninstallSelection.isNotEmpty()
+            text = getString(R.string.mass_uninstall_action, massUninstallSelection.size)
+        }
+        binding.resultsCount.isVisible = !massUninstallMode || massUninstallSelection.isEmpty()
+    }
+
+    override fun onMassUninstallToggle(app: AppModel.App) {
+        if (app.user != android.os.Process.myUserHandle()) {
+            requireContext().showToast(R.string.app_command_profile_uninstall)
+            adapter.refreshMassUninstallSelection()
+            openAppInfo(requireContext(), app.user, app.appPackage)
+            return
+        }
+        if (requireContext().isSystemApp(app.appPackage, app.user)) {
+            requireContext().showToast(R.string.system_app_cannot_delete)
+            adapter.refreshMassUninstallSelection()
+            openAppInfo(requireContext(), app.user, app.appPackage)
+            return
+        }
+        val key = appKey(app)
+        if (massUninstallSelection.remove(key) == null) massUninstallSelection[key] = app
+        updateMassUninstallUi()
+    }
+
+    private fun confirmMassUninstall() {
+        val selected = massUninstallSelection.values.toList().filter { app ->
+            app.user == android.os.Process.myUserHandle() && !requireContext().isSystemApp(app.appPackage, app.user)
+        }
+        if (selected.isEmpty()) {
+            requireContext().showToast(R.string.mass_uninstall_empty)
+            return
+        }
+        massUninstallDialog?.dismiss()
+        massUninstallDialog = androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            .setTitle(R.string.app_command_mass_uninstall)
+            .setMessage(resources.getQuantityString(R.plurals.mass_uninstall_confirm, selected.size, selected.size))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.app_command_uninstall) { _, _ ->
+                val packages = selected.sortedBy { it.appPackage == requireContext().packageName }
+                    .map(AppModel.App::appPackage)
+                if (!MassUninstallActivity.start(requireContext(), packages))
+                    requireContext().showToast(R.string.unable_to_open_app)
+            }
+            .show()
     }
 
     private fun showAppRename(app: AppModel) {
@@ -1155,6 +1229,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("appCommandQuery", appCommandSession.query)
         outState.putBoolean("appCommandConsumed", appCommandSession.consumed)
+        outState.putStringArrayList("massUninstallSelection", ArrayList(massUninstallSelection.keys))
         outState.putString("contactCommandQuery", commandSession.query)
         outState.putBoolean("contactCommandConsumed", commandSession.consumed)
         super.onSaveInstanceState(outState)
@@ -1174,6 +1249,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         appCommandJob?.cancel()
         renameDialog?.dismiss()
         renameDialog = null
+        massUninstallDialog?.dismiss()
+        massUninstallDialog = null
         appCommandChip = null
         commandJob?.cancel()
         commandExecutor?.cancel()

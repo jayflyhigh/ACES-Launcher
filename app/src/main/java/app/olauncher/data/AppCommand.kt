@@ -1,15 +1,17 @@
 package app.olauncher.data
 
-enum class AppCommand(val letter: Char) {
-    RENAME('r'), INFO('i'), PLAY_STORE('p'), UNINSTALL('u');
+enum class AppCommand(val code: String) {
+    RENAME("r"), INFO("i"), PLAY_STORE("p"), UNINSTALL("u"), MASS_UNINSTALL("mu");
+
+    val letter: Char get() = code.first()
 }
 
 data class AppCommandQuery(val command: AppCommand, val name: String) {
     companion object {
         fun parse(query: String): AppCommandQuery? {
-            if (query.length < 2 || query[1] != ' ') return null
-            val command = AppCommand.entries.firstOrNull { it.letter == query[0].lowercaseChar() } ?: return null
-            return AppCommandQuery(command, query.substring(2).trim())
+            val command = AppCommand.entries.sortedByDescending { it.code.length }
+                .firstOrNull { query.startsWith("${it.code} ", ignoreCase = true) } ?: return null
+            return AppCommandQuery(command, query.substring(command.code.length + 1).trim())
         }
     }
 }
@@ -29,6 +31,7 @@ class AppCommandSession(var query: String = "", var consumed: Boolean = false) {
     }
 
     fun automaticCandidate(matches: Int, ready: Boolean, resumed: Boolean, composing: Boolean): Boolean =
-        !consumed && matches == 1 && ready && resumed && !composing &&
+        !consumed && AppCommandQuery.parse(query)?.command != AppCommand.MASS_UNINSTALL &&
+            matches == 1 && ready && resumed && !composing &&
             AppCommandQuery.parse(query)?.name?.isNotBlank() == true
 }
