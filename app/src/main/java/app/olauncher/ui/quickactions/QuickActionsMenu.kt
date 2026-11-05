@@ -290,13 +290,21 @@ class QuickActionsMenu(
         val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
         val status = insets.getInsets(WindowInsetsCompat.Type.statusBars())
         val lp = panel.layoutParams as ViewGroup.MarginLayoutParams
+        val statusLp = binding.homeStatusPanel.layoutParams as ViewGroup.MarginLayoutParams
         val left = baseMargin + max(nav.left, cutout.left)
         val right = baseMargin + max(nav.right, cutout.right)
         val top = baseTopMargin + max(status.top, cutout.top)
         val bottom = baseMargin + max(nav.bottom, cutout.bottom)
-        if (lp.leftMargin == left && lp.rightMargin == right && lp.topMargin == top && lp.bottomMargin == bottom) return
-        lp.setMargins(left, top, right, bottom)
-        panel.layoutParams = lp
+        if (lp.leftMargin != left || lp.rightMargin != right || lp.topMargin != top || lp.bottomMargin != bottom) {
+            lp.setMargins(left, top, right, bottom)
+            panel.layoutParams = lp
+        }
+        if (statusLp.leftMargin != left || statusLp.rightMargin != right ||
+            statusLp.topMargin != top || statusLp.bottomMargin != bottom
+        ) {
+            statusLp.setMargins(left, top, right, bottom)
+            binding.homeStatusPanel.layoutParams = statusLp
+        }
     }
 
     private fun initActions() {

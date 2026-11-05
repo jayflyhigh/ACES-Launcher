@@ -8,6 +8,141 @@
     android:layout_height="match_parent"
     android:clipToPadding="false">
 
+    <LinearLayout
+        android:id="@+id/homeStatusPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_quick_panel"
+        android:orientation="vertical"
+        android:padding="11dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <app.olauncher.ui.quickactions.SquareFrameLayout
+                android:id="@+id/statusHour"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_quick_button"
+                android:contentDescription="@string/status_hour"
+                android:focusable="true">
+                <TextClock
+                    style="@style/QuickTileText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:format12Hour="hh"
+                    android:format24Hour="hh"
+                    android:importantForAccessibility="no" />
+            </app.olauncher.ui.quickactions.SquareFrameLayout>
+
+            <app.olauncher.ui.quickactions.SquareFrameLayout
+                android:id="@+id/statusMinute"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_quick_button"
+                android:contentDescription="@string/status_minute"
+                android:focusable="true">
+                <TextClock
+                    style="@style/QuickTileText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:format12Hour="mm"
+                    android:format24Hour="mm"
+                    android:importantForAccessibility="no" />
+            </app.olauncher.ui.quickactions.SquareFrameLayout>
+
+            <app.olauncher.ui.quickactions.SquareFrameLayout
+                android:id="@+id/statusPeriod"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_quick_button"
+                android:contentDescription="@string/status_period"
+                android:focusable="true">
+                <TextClock
+                    style="@style/QuickTileText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:format12Hour="a"
+                    android:format24Hour="a"
+                    android:textSize="14sp"
+                    android:importantForAccessibility="no" />
+            </app.olauncher.ui.quickactions.SquareFrameLayout>
+
+            <app.olauncher.ui.quickactions.SquareFrameLayout
+                android:id="@+id/statusBattery"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_margin="5dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_quick_button"
+                android:contentDescription="@string/status_battery"
+                android:focusable="true">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="center"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+                    <FrameLayout
+                        android:layout_width="18dp"
+                        android:layout_height="18dp">
+                        <ImageView
+                            android:id="@+id/batteryIcon"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_battery_outline"
+                            android:tint="?attr/primaryColor" />
+                        <ImageView
+                            android:id="@+id/batteryCharging"
+                            android:layout_width="9dp"
+                            android:layout_height="9dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_battery_bolt"
+                            android:tint="?attr/primaryColor"
+                            android:visibility="gone" />
+                    </FrameLayout>
+                    <TextView
+                        android:id="@+id/batteryLevel"
+                        style="@style/QuickBarText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="2dp"
+                        android:importantForAccessibility="no"
+                        android:text="0%"
+                        android:textSize="12sp" />
+                </LinearLayout>
+            </app.olauncher.ui.quickactions.SquareFrameLayout>
+        </LinearLayout>
+
+        <TextClock
+            android:id="@+id/homeStatusDate"
+            style="@style/QuickBarText"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_margin="5dp"
+            android:background="@drawable/bg_quick_bar"
+            android:format12Hour="EEE, MMM dd"
+            android:format24Hour="EEE, MMM dd"
+            android:contentDescription="@string/status_date" />
+    </LinearLayout>
+
     <View
         android:id="@+id/quickScrim"
         android:layout_width="match_parent"
