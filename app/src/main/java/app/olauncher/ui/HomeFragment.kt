@@ -15,17 +15,19 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.provider.Settings
 import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnLayout
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.findNavController
@@ -54,6 +56,7 @@ import app.olauncher.ui.quickactions.QuickActionsMenu
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.max
 
 class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListener {
 
@@ -66,7 +69,9 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
     private var quickActions: QuickActionsMenu? = null
     private var batteryReceiverRegistered = false
     private val batteryReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) = updateHomeBattery(intent)
+        override fun onReceive(context: Context?, intent: Intent?) {
+            intent?.let(::updateBatteryWidget)
+        }
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -87,45 +92,69 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         setHomeAlignment(prefs.homeAlignment)
         initSwipeTouchListener()
         initClickListeners()
-        quickActions = QuickActionsMenu(this, binding.quickActions, viewModel)
-        binding.quickActions.homeStatusPanel.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            reserveHomeStatusPanelSpace()
+        ViewCompat.setOnApplyWindowInsetsListener(binding.homeWidget.root) { _, insets ->
+            val nav = insets.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.navigationBars())
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val params = binding.homeWidget.homeWidgetPanel.layoutParams as ViewGroup.MarginLayoutParams
+            val left = 12.dpToPx() + max(nav.left, cutout.left)
+            val right = 12.dpToPx() + max(nav.right, cutout.right)
+            params.bottomMargin = 12.dpToPx() + max(nav.bottom, cutout.bottom)
+            params.setMargins(left, params.topMargin, right, params.bottomMargin)
+            binding.homeWidget.homeWidgetPanel.layoutParams = params
+            positionHomeContentAboveWidget()
+            insets
         }
-        binding.quickActions.homeStatusPanel.post { reserveHomeStatusPanelSpace() }
+        quickActions = QuickActionsMenu(this, binding.quickActions, viewModel)
     }
 
     private fun openQuickActions() {
         quickActions?.show()
     }
 
-    override fun onStop() {
-        quickActions?.hide(false)
-        if (batteryReceiverRegistered) {
-            runCatching { requireContext().unregisterReceiver(batteryReceiver) }
-            batteryReceiverRegistered = false
+    private fun positionHomeContentAboveWidget() {
+        val panel = binding.homeWidget.homeWidgetPanel
+        if (panel.height == 0) {
+            panel.doOnLayout {
+                if (_binding != null) positionHomeContentAboveWidget()
+            }
+            return
         }
-        super.onStop()
+
+        val panelBottomMargin = (panel.layoutParams as ViewGroup.MarginLayoutParams).bottomMargin
+        val reservedHeight = panel.height + panelBottomMargin
+        (binding.homeAppsLayout.layoutParams as FrameLayout.LayoutParams).apply {
+            bottomMargin = reservedHeight
+            binding.homeAppsLayout.layoutParams = this
+        }
+        val promptMargin = reservedHeight + 8.dpToPx()
+        listOf(binding.firstRunTips, binding.setDefaultLauncher).forEach { prompt ->
+            (prompt.layoutParams as FrameLayout.LayoutParams).apply {
+                bottomMargin = promptMargin
+                prompt.layoutParams = this
+            }
+        }
     }
 
-    override fun onStart() {
-        super.onStart()
-        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        var initial: Intent? = null
-        batteryReceiverRegistered = runCatching {
-            initial = ContextCompat.registerReceiver(
-                requireContext(), batteryReceiver, filter, ContextCompat.RECEIVER_EXPORTED,
-            )
-            true
-        }.getOrDefault(false)
-        updateHomeBattery(initial)
+    override fun onStop() {
+        quickActions?.hide(false)
+        super.onStop()
     }
 
     override fun onResume() {
         super.onResume()
         populateHomeScreen(false)
+        registerBatteryReceiver()
         viewModel.isOlauncherDefault()
         if (prefs.showStatusBar) showStatusBar()
         else hideStatusBar()
+    }
+
+    override fun onPause() {
+        if (batteryReceiverRegistered) {
+            requireContext().unregisterReceiver(batteryReceiver)
+            batteryReceiverRegistered = false
+        }
+        super.onPause()
     }
 
     override fun onClick(view: View) {
@@ -135,9 +164,9 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
             // R.id.recents -> {}
             R.id.clock -> openClockApp()
             R.id.date -> openCalendarApp()
-            R.id.statusHour, R.id.statusMinute, R.id.statusPeriod -> openClockApp()
-            R.id.homeStatusDate -> openCalendarApp()
-            R.id.statusBattery -> openBatterySettings()
+            R.id.widgetHour, R.id.widgetMinute, R.id.widgetAmPm -> openClockApp()
+            R.id.widgetBattery -> openBatteryApp()
+            R.id.widgetDate -> openCalendarApp()
             R.id.setDefaultLauncher -> viewModel.resetLauncherLiveData.call()
             R.id.tvScreenTime -> openScreenTimeDigitalWellbeing()
 
@@ -176,6 +205,54 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
             )
     }
 
+    private fun openBatteryApp() {
+        if (prefs.batteryAppPackage.isNotBlank()) {
+            launchApp(
+                "Battery",
+                prefs.batteryAppPackage,
+                prefs.batteryAppClassName,
+                prefs.batteryAppUser
+            )
+            return
+        }
+
+        try {
+            startActivity(Intent("android.intent.action.POWER_USAGE_SUMMARY"))
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(android.provider.Settings.ACTION_BATTERY_SAVER_SETTINGS))
+            } catch (_: Exception) {
+                startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))
+            }
+        }
+    }
+
+    private fun registerBatteryReceiver() {
+        if (batteryReceiverRegistered) return
+        ContextCompat.registerReceiver(
+            requireContext(),
+            batteryReceiver,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
+        batteryReceiverRegistered = true
+    }
+
+    private fun updateBatteryWidget(intent: Intent) {
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+        val percentage = ((level.coerceAtLeast(0) * 100f) / scale).toInt().coerceIn(0, 100)
+        val charging = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1) == BatteryManager.BATTERY_STATUS_CHARGING
+        binding.homeWidget.widgetBatteryPercent.text = getString(R.string.battery_percentage, percentage)
+        binding.homeWidget.widgetBattery.contentDescription = getString(
+            if (charging) R.string.battery_accessibility_charging else R.string.battery_accessibility,
+            percentage,
+        )
+        binding.homeWidget.widgetBatteryIcon.setImageResource(
+            if (charging) R.drawable.ic_battery_charging_widget else R.drawable.ic_battery_widget,
+        )
+    }
+
     override fun onLongClick(view: View): Boolean {
         when (view.id) {
             R.id.homeApp1 -> showAppList(Constants.FLAG_SET_HOME_APP_1, prefs.appName1.isNotEmpty(), true)
@@ -189,10 +266,23 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
             R.id.clock -> {
                 chooseClockApp()
             }
-            R.id.statusHour, R.id.statusMinute, R.id.statusPeriod -> chooseClockApp()
+            R.id.date -> chooseCalendarApp()
 
-            R.id.date, R.id.homeStatusDate -> chooseCalendarApp()
-            R.id.statusBattery -> {
+            R.id.widgetHour, R.id.widgetMinute, R.id.widgetAmPm -> {
+                showAppList(Constants.FLAG_SET_CLOCK_APP)
+                prefs.clockAppPackage = ""
+                prefs.clockAppClassName = ""
+                prefs.clockAppUser = ""
+            }
+
+            R.id.widgetDate -> {
+                showAppList(Constants.FLAG_SET_CALENDAR_APP)
+                prefs.calendarAppPackage = ""
+                prefs.calendarAppClassName = ""
+                prefs.calendarAppUser = ""
+            }
+
+            R.id.widgetBattery -> {
                 showAppList(Constants.FLAG_SET_BATTERY_APP)
                 prefs.batteryAppPackage = ""
                 prefs.batteryAppClassName = ""
@@ -275,18 +365,17 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         binding.date.setOnClickListener(this)
         binding.clock.setOnLongClickListener(this)
         binding.date.setOnLongClickListener(this)
-        listOf(binding.quickActions.statusHour, binding.quickActions.statusMinute, binding.quickActions.statusPeriod).forEach {
-            it.setOnClickListener(this)
-            it.setOnLongClickListener(this)
-        }
-        binding.quickActions.statusBattery.setOnClickListener(this)
-        binding.quickActions.statusBattery.setOnLongClickListener(this)
-        binding.quickActions.homeStatusDate.setOnClickListener(this)
-        binding.quickActions.homeStatusDate.setOnLongClickListener(this)
         binding.setDefaultLauncher.setOnClickListener(this)
         binding.setDefaultLauncher.setOnLongClickListener(this)
         binding.tvScreenTime.setOnClickListener(this)
         binding.tvScreenTime.setOnLongClickListener(this)
+        listOf(
+            binding.homeWidget.widgetHour,
+            binding.homeWidget.widgetMinute,
+            binding.homeWidget.widgetAmPm,
+            binding.homeWidget.widgetBattery,
+            binding.homeWidget.widgetDate,
+        ).forEach { it.setOnTouchListener(getViewSwipeTouchListener(requireContext(), it)) }
 
         // These fire only on d-pad/keyboard events; touch is consumed by ViewSwipeTouchListener
         binding.homeApp1.setOnClickListener(this)
@@ -307,28 +396,6 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         binding.homeApp8.setOnLongClickListener(this)
     }
 
-    private fun reserveHomeStatusPanelSpace() {
-        if (_binding == null || !binding.quickActions.homeStatusPanel.isLaidOut) return
-        val density = resources.displayMetrics.density
-        val margins = binding.quickActions.homeStatusPanel.layoutParams as ViewGroup.MarginLayoutParams
-        val reserved = binding.quickActions.homeStatusPanel.height + margins.bottomMargin + (12 * density).toInt()
-        val bottom = maxOf((48 * density).toInt(), reserved)
-        binding.homeAppsLayout.setPadding(binding.homeAppsLayout.paddingLeft, binding.homeAppsLayout.paddingTop,
-            binding.homeAppsLayout.paddingRight, bottom)
-    }
-
-    private fun updateHomeBattery(intent: Intent?) {
-        if (_binding == null) return
-        val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-        val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-        val percent = if (level >= 0 && scale > 0) (level * 100 / scale).coerceIn(0, 100)
-            else (requireContext().getSystemService(Context.BATTERY_SERVICE) as BatteryManager)
-                .getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY).coerceIn(0, 100)
-        binding.quickActions.batteryLevel.text = getString(R.string.battery_percentage, percent)
-        val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-        binding.quickActions.batteryCharging.isVisible = status == BatteryManager.BATTERY_STATUS_CHARGING
-    }
-
     private fun chooseClockApp() {
         showAppList(Constants.FLAG_SET_CLOCK_APP)
         prefs.clockAppPackage = ""
@@ -341,22 +408,6 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         prefs.calendarAppPackage = ""
         prefs.calendarAppClassName = ""
         prefs.calendarAppUser = ""
-    }
-
-    private fun openBatterySettings() {
-        if (prefs.batteryAppPackage.isNotBlank()) {
-            launchApp("Battery", prefs.batteryAppPackage, prefs.batteryAppClassName, prefs.batteryAppUser)
-            return
-        }
-        try {
-            startActivity(Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS))
-        } catch (_: Exception) {
-            try {
-                startActivity(Intent(Settings.ACTION_SETTINGS))
-            } catch (_: Exception) {
-                showLongPressToast()
-            }
-        }
     }
 
     private fun setHomeAlignment(horizontalGravity: Int = prefs.homeAlignment) {

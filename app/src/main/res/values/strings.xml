@@ -9,6 +9,14 @@
     <string name="new_app_note_safe" translatable="false"><u>Note to Self</u>\n<sub><small>(Ad-Free)</small></sub></string>
     <string name="new_app_minimal_todo_lists" translatable="false"><u>Minimal Todo Lists</u>\n<sub><small>(Ad-Free)</small></sub></string>
     <string name="day_battery" formatted="false" translatable="false">%s, %d%%</string>
+    <string name="widget_hour">Clock hour</string>
+    <string name="widget_minute">Clock minute</string>
+    <string name="widget_am_pm">AM or PM</string>
+    <string name="widget_battery">Battery</string>
+    <string name="widget_date">Date</string>
+    <string name="battery_percentage">%1$d%%</string>
+    <string name="battery_accessibility">%1$d%% battery</string>
+    <string name="battery_accessibility_charging">%1$d%% battery, charging</string>
     <string name="tag_0" translatable="false">0</string>
     <string name="tag_1" translatable="false">1</string>
     <string name="tag_2" translatable="false">2</string>

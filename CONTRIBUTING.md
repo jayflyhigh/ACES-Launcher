@@ -14,8 +14,22 @@ request fits that goal; some niche features are kept hidden rather than exposed 
 ## Building the project
 
 - Android Studio, Kotlin, compileSdk 36 / minSdk 24 / targetSdk 36, JVM target 17.
-- No CI currently runs on this repo, so please build and test locally before opening a PR:
+- Please build and test locally before opening a PR:
   `./gradlew assembleDebug` and `./gradlew testDebugUnitTest`.
+
+## Downloading a debug APK
+
+- Pushes, merges, and pull requests to `main` or `master` (the current default branch)
+  automatically run **Build debug APK** in GitHub Actions.
+  To build manually, open **Actions → Build debug APK → Run workflow**.
+  The manual option becomes available once the workflow is on the default branch.
+- Open a successful run and download **ACES-Launcher-Debug-APK** from **Artifacts**.
+  Extract the ZIP and copy `app-debug.apk` to your Android phone.
+- On Android 7.0 (API 24) or newer, open the APK and allow installation from that
+  source when prompted. The debug APK is automatically signed and installs separately
+  from the release app. Debug signing keys can differ between runs; if Android rejects
+  an update because of a signature mismatch, uninstall the previous debug app first
+  (this deletes its settings), then install the new APK.
 
 ## Code style
 
