@@ -97,7 +97,8 @@ class SearchResultsAdapter(
             appStyle.apply(appAppearance ?: AppSearchAppearance(), tileCount, labelGravity)
             binding.itemTitle.alpha = 1f
             binding.itemType.isVisible = true
-            binding.itemMenu.isVisible = item !is SearchItem.Permission
+            binding.contactActions.isVisible = false
+            binding.itemMenu.isVisible = item !is SearchItem.Permission && item !is SearchItem.ContactItem
             binding.root.setOnLongClickListener(null)
             binding.root.isLongClickable = false
             when (item) {
@@ -115,8 +116,21 @@ class SearchResultsAdapter(
                 }
                 is SearchItem.ContactItem -> {
                     binding.itemTitle.text = item.contact.name
-                    binding.itemType.setText(R.string.search_type_contact)
+                    binding.itemType.isVisible = false
                     setIcon(R.drawable.ic_person)
+                    binding.contactActions.isVisible = tileCount == 1
+                    if (tileCount == 1) {
+                        val density = binding.root.resources.displayMetrics.density
+                        binding.root.setPadding((12 * density).toInt(), binding.root.paddingTop, 0, binding.root.paddingBottom)
+                        binding.itemIcon.layoutParams = binding.itemIcon.layoutParams.apply {
+                            width = (32 * density).toInt()
+                            height = width
+                            (this as? ViewGroup.MarginLayoutParams)?.marginEnd = (12 * density).toInt()
+                        }
+                    }
+                    binding.contactCallAction.setOnClickListener { actions.onContactCall(item.contact) }
+                    binding.contactTextAction.setOnClickListener { actions.onContactText(item.contact) }
+                    binding.contactWhatsAppAction.setOnClickListener { actions.onContactWhatsApp(item.contact) }
                     binding.root.setOnClickListener {
                         if (tileCount == 2) actions.onContactTileClick(item.contact, binding.root)
                         else actions.onContactClick(item.contact)

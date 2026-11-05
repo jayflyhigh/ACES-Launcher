@@ -14,6 +14,7 @@ import android.os.Looper
 import android.os.UserHandle
 import android.provider.ContactsContract
 import android.text.Spannable
+import android.text.style.ImageSpan
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -103,6 +104,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private var filterGeneration = 0L
     private var restoringCommandState = false
     private var displayedCommand: ContactCommand? = null
+    private var commandCodeIconSpan: ImageSpan? = null
     private var appsReady = false
     private val contactsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean) { viewModel.loadContacts() }
@@ -394,7 +396,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             it.setBackgroundResource(R.drawable.bg_search_button)
         }
         popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-        showPopup(popup, anchor, actions.root)
+        showPopup(popup, anchor, actions.root, centerOnAnchor = true)
     }
 
     private fun createPopup(content: View, widthDp: Int, background: Int, heightDp: Int? = null): PopupWindow {
@@ -426,6 +428,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         popup: PopupWindow,
         anchor: View,
         content: View,
+        centerOnAnchor: Boolean = false,
     ) {
         activePopupWindow?.dismiss()
         activePopupWindow = popup
@@ -438,8 +441,14 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             View.MeasureSpec.makeMeasureSpec(popup.width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(visible.height(), View.MeasureSpec.AT_MOST),
         )
-        val bounds = searchPopupBounds(visible, location[0], location[1], anchor.width, anchor.height,
-            popup.width, if (popup.height > 0) popup.height else content.measuredHeight)
+        val popupHeight = if (popup.height > 0) popup.height else content.measuredHeight
+        val bounds = if (centerOnAnchor) {
+            centeredSearchPopupBounds(
+                visible, location[0], location[1], anchor.width, anchor.height, popup.width, popupHeight,
+            )
+        } else {
+            searchPopupBounds(visible, location[0], location[1], anchor.width, anchor.height, popup.width, popupHeight)
+        }
         popup.width = bounds.width()
         popup.height = bounds.height()
         val windowOrigin = IntArray(2)
@@ -523,17 +532,15 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private fun updateCommandIndicator() {
         val parsed = ContactCommandQuery.parse(currentQuery())
             ?.takeIf { prefs.contactCommandSettings().showIndicator }
+        binding.commandIndicator.text = null
+        binding.commandIndicator.setCompoundDrawablesRelative(null, null, null, null)
+        binding.commandIndicator.isVisible = false
         if (parsed?.command == displayedCommand) return
         displayedCommand = parsed?.command
-        val label = when (parsed?.command) {
-            ContactCommand.PHONE -> R.string.contact_command_phone
-            ContactCommand.MESSAGE -> R.string.contact_command_message
-            ContactCommand.WHATSAPP -> R.string.whatsapp
-            ContactCommand.CONTACT -> R.string.contact_command_contact
-            null -> R.string.contacts
-        }
-        binding.commandIndicator.setText(label)
-        binding.commandIndicator.isVisible = parsed != null
+        val editable = searchTextView?.text as? Spannable
+        commandCodeIconSpan?.let { editable?.removeSpan(it) }
+        commandCodeIconSpan = null
+        if (parsed == null || editable.isNullOrEmpty()) return
         val icon = when (parsed?.command) {
             ContactCommand.PHONE -> R.drawable.ic_call
             ContactCommand.MESSAGE -> R.drawable.ic_message
@@ -546,8 +553,12 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             setBounds(0, 0, size, size)
             setTint(android.graphics.Color.WHITE)
         }
-        binding.commandIndicator.compoundDrawablePadding = (8 * resources.displayMetrics.density).toInt()
-        binding.commandIndicator.setCompoundDrawablesRelative(drawable, null, null, null)
+        if (drawable != null) {
+            ImageSpan(drawable, ImageSpan.ALIGN_BASELINE).also { span ->
+                editable.setSpan(span, 0, 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                commandCodeIconSpan = span
+            }
+        }
     }
 
     private fun scheduleContactCommand(query: String, items: List<SearchItem>) {

@@ -21,3 +21,21 @@ internal fun searchPopupBounds(
     val safeTop = top.coerceIn(visible.top, (visible.bottom - popupHeight).coerceAtLeast(visible.top))
     return Rect(left, safeTop, left + popupWidth, safeTop + popupHeight)
 }
+
+internal fun centeredSearchPopupBounds(
+    visible: Rect,
+    anchorX: Int,
+    anchorY: Int,
+    anchorWidth: Int,
+    anchorHeight: Int,
+    width: Int,
+    height: Int,
+): Rect {
+    val popupWidth = width.coerceIn(1, visible.width().coerceAtLeast(1))
+    val popupHeight = height.coerceIn(1, visible.height().coerceAtLeast(1))
+    val maxLeft = (visible.right - popupWidth).coerceAtLeast(visible.left)
+    val maxTop = (visible.bottom - popupHeight).coerceAtLeast(visible.top)
+    val left = (anchorX + (anchorWidth - popupWidth) / 2).coerceIn(visible.left, maxLeft)
+    val top = (anchorY + (anchorHeight - popupHeight) / 2).coerceIn(visible.top, maxTop)
+    return Rect(left, top, left + popupWidth, top + popupHeight)
+}

@@ -100,14 +100,23 @@ class SearchRedesignTest {
                 for ((position, item) in adapter.currentList.withIndex()) {
                     val row = list.findViewHolderForAdapterPosition(position)?.itemView ?: continue
                     if (item is SearchItem.Header) continue
-                    assertEquals(View.VISIBLE, row.findViewById<View>(R.id.itemMenu).visibility)
+                    assertEquals(
+                        if (item is SearchItem.ContactItem) View.GONE else View.VISIBLE,
+                        row.findViewById<View>(R.id.itemMenu).visibility,
+                    )
+                    assertEquals(
+                        if (item is SearchItem.ContactItem && columns == 1) View.VISIBLE else View.GONE,
+                        row.findViewById<View>(R.id.contactActions).visibility,
+                    )
                     val label = when (item) {
                         is SearchItem.App -> "App"
-                        is SearchItem.ContactItem -> "Contact"
                         is SearchItem.Engine -> "Search Engine"
+                        is SearchItem.ContactItem -> null
                         else -> error("Unexpected row")
                     }
-                    assertEquals(label, row.findViewById<TextView>(R.id.itemType).text.toString())
+                    val itemType = row.findViewById<TextView>(R.id.itemType)
+                    if (label == null) assertEquals(View.GONE, itemType.visibility)
+                    else assertEquals(label, itemType.text.toString())
                     assertTrue(row.findViewById<View>(R.id.itemTitle).width > 0)
                     assertTrue(row.findViewById<View>(R.id.itemIcon).width > 0)
                 }
@@ -266,6 +275,36 @@ class SearchRedesignTest {
     }
 
     @Test
+    fun `contact command prefixes use inline icons without a heading label`() {
+        withPage(SearchMode.CONTACTS_ONLY) { _, fragment, _ ->
+            val root = fragment.requireView()
+            val search = root.findViewById<SearchView>(R.id.search)
+            val editor = root.findViewById<TextView>(R.id.search_src_text)
+            for (prefix in listOf("p", "m", "w", "c")) {
+                search.setQuery("$prefix ", false)
+                awaitCommand { editor.text.toString() == "$prefix " }
+                assertEquals("$prefix ", editor.text.toString())
+                assertEquals(
+                    1,
+                    (editor.text as android.text.Spanned).getSpans(0, 1, android.text.style.ImageSpan::class.java).size,
+                )
+                assertEquals(View.GONE, root.findViewById<View>(R.id.commandIndicator).visibility)
+            }
+        }
+    }
+
+    @Test
+    fun `single tile contact actions are inline and launch their existing actions`() {
+        withPage(SearchMode.CONTACTS_ONLY, columns = 1) { activity, fragment, _ ->
+            val row = fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView).getChildAt(0)
+            assertEquals(View.GONE, row.findViewById<View>(R.id.itemMenu).visibility)
+            assertEquals(View.VISIBLE, row.findViewById<View>(R.id.contactActions).visibility)
+            row.findViewById<View>(R.id.contactCallAction).performClick()
+            assertEquals(android.content.Intent.ACTION_DIAL, shadowOf(activity).nextStartedActivity.action)
+        }
+    }
+
+    @Test
     @Config(sdk = [28])
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun `redesigned pages render black backgrounds and readable tiles at phone widths`() {
@@ -294,17 +333,35 @@ class SearchRedesignTest {
                     val title = row.findViewById<TextView>(R.id.itemTitle) ?: continue
                     assertTrue("Result names need usable width in both layouts", title.width >= 32 * root.resources.displayMetrics.density)
                     assertEquals(Color.WHITE, title.currentTextColor)
-                    assertTrue(row.findViewById<TextView>(R.id.itemType).height > 0)
+                    val itemType = row.findViewById<TextView>(R.id.itemType)
+                    if (itemType.visibility == View.VISIBLE) assertTrue(itemType.height > 0)
                     val menu = row.findViewById<View>(R.id.itemMenu)
-                    assertTrue(menu.width >= 48 * root.resources.displayMetrics.density)
+                    if (menu.visibility == View.VISIBLE)
+                        assertTrue(menu.width >= 48 * root.resources.displayMetrics.density)
+                    val contactActions = row.findViewById<View>(R.id.contactActions)
+                    if (contactActions.visibility == View.VISIBLE)
+                        assertTrue(contactActions.width >= 120 * root.resources.displayMetrics.density)
                 }
                 System.getenv("ACES_SCREENSHOT_DIR")?.let { directory ->
                     File(directory, "search-${mode.name.lowercase()}-$columns.png").outputStream().use {
                         assertTrue(image.compress(Bitmap.CompressFormat.PNG, 100, it))
                     }
+
                 }
                 image.recycle()
             }
         }
+    }
+
+    @Test
+    fun `two tile contact action popup centers over its tile and stays within visible bounds`() {
+        assertEquals(
+            Rect(95, 312, 255, 368),
+            centeredSearchPopupBounds(Rect(0, 0, 400, 800), 100, 300, 150, 80, 160, 56),
+        )
+        assertEquals(
+            Rect(0, 0, 160, 56),
+            centeredSearchPopupBounds(Rect(0, 0, 400, 800), 0, 0, 80, 40, 160, 56),
+        )
     }
 }

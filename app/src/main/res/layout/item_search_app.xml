@@ -48,6 +48,45 @@
             android:includeFontPadding="false" />
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/contactActions"
+        android:layout_width="wrap_content"
+        android:layout_height="48dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/contactCallAction"
+            android:layout_width="40dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_search_button"
+            android:contentDescription="@string/call"
+            android:padding="11dp"
+            android:src="@drawable/ic_call"
+            android:tint="@color/search_secondary" />
+
+        <ImageButton
+            android:id="@+id/contactTextAction"
+            android:layout_width="40dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_search_button"
+            android:contentDescription="@string/text_message"
+            android:padding="11dp"
+            android:src="@drawable/ic_message"
+            android:tint="@color/search_secondary" />
+
+        <ImageButton
+            android:id="@+id/contactWhatsAppAction"
+            android:layout_width="40dp"
+            android:layout_height="48dp"
+            android:background="@drawable/bg_search_button"
+            android:contentDescription="@string/whatsapp"
+            android:padding="11dp"
+            android:src="@drawable/ic_whatsapp"
+            android:tint="@color/search_secondary" />
+    </LinearLayout>
+
     <ImageButton
         android:id="@+id/itemMenu"
         android:layout_width="48dp"
