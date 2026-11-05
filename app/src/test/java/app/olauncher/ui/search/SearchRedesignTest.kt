@@ -88,7 +88,10 @@ class SearchRedesignTest {
         for ((index, mode) in SearchMode.entries.withIndex()) for (columns in 1..2) {
             withPage(mode, columns) { _, fragment, _ ->
                 val root = fragment.requireView()
-                assertEquals(Color.BLACK, (root.background as ColorDrawable).color)
+                assertEquals(
+                    androidx.core.content.ContextCompat.getColor(root.context, R.color.search_background),
+                    (root.background as ColorDrawable).color,
+                )
                 assertEquals(titles[index], root.findViewById<TextView>(R.id.modeTitle).text.toString())
                 assertEquals("", root.findViewById<SearchView>(R.id.search).queryHint.toString())
                 val list = root.findViewById<RecyclerView>(R.id.recyclerView)
@@ -194,6 +197,29 @@ class SearchRedesignTest {
     }
 
     @Test
+    fun `search page popup settings remain on engines and page appearance is hidden`() {
+        for (mode in SearchMode.entries) withPage(mode) { _, fragment, _ ->
+            fragment.requireView().findViewById<View>(R.id.searchPageMenu).performClick()
+            val field = UniversalSearchFragment::class.java.getDeclaredField("activePopupWindow").apply {
+                isAccessible = true
+            }
+            val popup = field.get(fragment) as PopupWindow
+            val menu = popup.contentView
+            val settingsVisibility = menu.findViewById<View>(R.id.searchPageSettings).visibility
+            val appearanceVisibility = menu.findViewById<View>(R.id.searchPageAppearance).visibility
+            assertEquals(
+                if (mode == SearchMode.ENGINES_ONLY) View.VISIBLE else View.GONE,
+                settingsVisibility,
+            )
+            assertEquals(
+                View.GONE,
+                appearanceVisibility,
+            )
+            popup.dismiss()
+        }
+    }
+
+    @Test
     fun `popup opens down or up within keyboard safe bounds and caps oversized content`() {
         val visible = Rect(0, 24, 400, 500)
         assertEquals(Rect(100, 100, 356, 300), searchPopupBounds(visible, 308, 52, 48, 48, 256, 200))
@@ -259,7 +285,10 @@ class SearchRedesignTest {
                 invalidate(root)
                 val image = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
                 root.draw(Canvas(image))
-                assertEquals(Color.BLACK, image.getPixel(0, 0))
+                assertEquals(
+                    androidx.core.content.ContextCompat.getColor(root.context, R.color.search_background),
+                    image.getPixel(0, 0),
+                )
                 for (i in 0 until list.childCount) {
                     val row = list.getChildAt(i)
                     val title = row.findViewById<TextView>(R.id.itemTitle) ?: continue

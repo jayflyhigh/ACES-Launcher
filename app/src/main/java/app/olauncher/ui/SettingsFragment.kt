@@ -113,10 +113,6 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
             R.id.swipeLeftApp -> showSwipeActionMenu(view, isLeft = true)
             R.id.swipeRightApp -> showSwipeActionMenu(view, isLeft = false)
             R.id.searchEnginesSetting -> findNavController().navigate(R.id.action_settingsFragment_to_searchEnginesFragment)
-            R.id.appSearchSetting -> findNavController().navigate(R.id.appSearchSettingsFragment)
-            R.id.contactSearchSetting -> findNavController().navigate(R.id.contactSearchSettingsFragment)
-            R.id.searchAnythingSetting -> findNavController().navigate(R.id.searchAppearanceFragment,
-                Bundle().apply { putString(Constants.Key.SEARCH_MODE, app.olauncher.data.SearchMode.ALL_SEARCH.name) })
         }
     }
 
@@ -148,9 +144,6 @@ class SettingsFragment : BaseFragment(), View.OnClickListener, View.OnLongClickL
         binding.textSizeValue.setOnClickListener(this)
         binding.boldFont.setOnClickListener(this)
         binding.searchEnginesSetting.setOnClickListener(this)
-        binding.appSearchSetting.setOnClickListener(this)
-        binding.contactSearchSetting.setOnClickListener(this)
-        binding.searchAnythingSetting.setOnClickListener(this)
 
         binding.dailyWallpaper.setOnLongClickListener(this)
         binding.appThemeText.setOnLongClickListener(this)

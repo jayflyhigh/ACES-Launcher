@@ -43,7 +43,7 @@
         android:id="@+id/searchHeading"
         android:layout_width="match_parent"
         android:layout_height="64dp"
-        android:background="@color/search_background"
+        android:background="@android:color/transparent"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 

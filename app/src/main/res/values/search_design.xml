@@ -1,9 +1,10 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <color name="search_background">#000000</color>
+    <color name="search_background">#111418</color>
     <color name="search_surface">#1C1F23</color>
     <color name="search_surface_pressed">#272B30</color>
     <color name="search_outline">#343940</color>
     <color name="search_accent">#B7DF70</color>
+    <color name="search_field_focus">#FFFFFF</color>
     <color name="search_outline_active">#718E48</color>
     <color name="search_secondary">#ABB2BB</color>
     <string name="search_anything">Search Anything</string>

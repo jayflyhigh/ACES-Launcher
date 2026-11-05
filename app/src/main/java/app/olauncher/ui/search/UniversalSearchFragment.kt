@@ -295,12 +295,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             return
         }
         val popupBinding = PopupSearchPageMenuBinding.inflate(layoutInflater)
-        popupBinding.searchPageAppearance.isVisible = mode != SearchMode.APPS_ONLY
-        popupBinding.searchPageAppearance.setOnClickListener {
-            activePopupWindow?.dismiss()
-            findNavController().navigate(R.id.searchAppearanceFragment,
-                Bundle().apply { putString(Constants.Key.SEARCH_MODE, mode.name) })
-        }
+        popupBinding.searchPageSettings.isVisible = mode == SearchMode.ENGINES_ONLY
+        popupBinding.searchPageAppearance.isVisible = false
         updateTileCountControls(popupBinding)
         popupBinding.searchPageSettings.setOnClickListener {
             activePopupWindow?.dismiss()
@@ -363,7 +359,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         val appearance = prefs.searchAppearance(mode, searchTileCount)
         appAppearance = appearance
         binding.searchRoot.setBackgroundColor(
-            appearance.background(Color.BLACK)
+            appearance.background(ContextCompat.getColor(requireContext(), R.color.search_background))
         )
         val foreground = android.graphics.Color.WHITE
         binding.modeTitle.setTextColor(foreground)
