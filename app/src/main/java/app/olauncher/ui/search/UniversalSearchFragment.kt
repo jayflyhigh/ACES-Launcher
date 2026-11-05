@@ -231,7 +231,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
                 override fun getSpanSize(position: Int): Int =
                     when (adapter.currentList.getOrNull(position)) {
-                        is SearchItem.Header, is SearchItem.Permission -> spanCount
+                        is SearchItem.Header, is SearchItem.Permission, is SearchItem.AddContact -> spanCount
                         else -> 1
                     }
             }
@@ -299,6 +299,43 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         val popupBinding = PopupSearchPageMenuBinding.inflate(layoutInflater)
         popupBinding.searchPageSettings.isVisible = mode == SearchMode.ENGINES_ONLY
         popupBinding.searchPageAppearance.isVisible = false
+        popupBinding.contactCommands.isVisible = mode == SearchMode.CONTACTS_ONLY
+        if (mode == SearchMode.CONTACTS_ONLY) {
+            val density = resources.displayMetrics.density
+            val commands = listOf(
+                Triple(ContactCommand.PHONE, R.drawable.ic_call, R.string.contact_command_phone),
+                Triple(ContactCommand.MESSAGE, R.drawable.ic_message, R.string.contact_command_message),
+                Triple(ContactCommand.WHATSAPP, R.drawable.ic_whatsapp, R.string.whatsapp),
+                Triple(ContactCommand.CONTACT, R.drawable.ic_person, R.string.contact_command_page),
+            )
+            commands.forEach { (command, icon, label) ->
+                val entry = TextView(requireContext()).apply {
+                    text = getString(R.string.contact_command_menu_entry,
+                        command.letter.uppercaseChar().toString(), getString(label))
+                    textSize = 16f
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding((12 * density).toInt(), 0, (12 * density).toInt(), 0)
+                    compoundDrawablePadding = (12 * density).toInt()
+                    val drawable = ContextCompat.getDrawable(context, icon)?.mutate()?.apply {
+                        setBounds(0, 0, (20 * density).toInt(), (20 * density).toInt())
+                        setTint(Color.WHITE)
+                    }
+                    setCompoundDrawablesRelative(drawable, null, null, null)
+                    setOnClickListener {
+                        val query = currentQuery()
+                        val name = ContactCommandQuery.parse(query)?.name ?: query.trim()
+                        activePopupWindow?.dismiss()
+                        binding.search.setQuery("${command.letter} $name", false)
+                        updateCommandIndicator()
+                        searchTextView?.requestFocus()
+                        (requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
+                            .showSoftInput(searchTextView, InputMethodManager.SHOW_IMPLICIT)
+                    }
+                }
+                popupBinding.contactCommands.addView(entry,
+                    LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (48 * density).toInt()))
+            }
+        }
         updateTileCountControls(popupBinding)
         popupBinding.searchPageSettings.setOnClickListener {
             activePopupWindow?.dismiss()
@@ -500,7 +537,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 binding.resultsCount.text = resources.getQuantityString(R.plurals.search_result_count, count, count)
                 val loading = (mode.showsContacts && viewModel.contactsLoading.value == true) ||
                     (mode.showsApps && !appsReady)
-                binding.emptyState.isVisible = count == 0 && !loading && items.none { it is SearchItem.Permission }
+                binding.emptyState.isVisible = count == 0 && !loading &&
+                    items.none { it is SearchItem.Permission || it is SearchItem.AddContact }
                 if (mode == SearchMode.CONTACTS_ONLY) {
                     if (commandSubmitQuery == query) {
                         commandSubmitQuery = null
@@ -537,9 +575,12 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         binding.commandIndicator.text = null
         binding.commandIndicator.setCompoundDrawablesRelative(null, null, null, null)
         binding.commandIndicator.isVisible = false
-        if (parsed?.command == displayedCommand) return
-        displayedCommand = parsed?.command
         val editable = searchTextView?.text as? Spannable
+        if (parsed?.command == displayedCommand && (parsed == null || commandCodeIconSpan?.let {
+                editable?.getSpanStart(it) == 0 && editable.getSpanEnd(it) == 1
+            } == true)
+        ) return
+        displayedCommand = parsed?.command
         commandCodeIconSpan?.let { editable?.removeSpan(it) }
         commandCodeIconSpan = null
         if (parsed == null || editable.isNullOrEmpty()) return
@@ -666,6 +707,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             if (showHeaders) items.add(SearchItem.Header(titles.search))
             engines.mapTo(items) { SearchItem.Engine(it, it.id == aliasEngineId) }
         }
+        if (mode == SearchMode.CONTACTS_ONLY && q.isNotBlank()) items.add(SearchItem.AddContact(q))
         return items
     }
 
@@ -720,6 +762,17 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     // SearchActions
+
+    override fun onAddContact(query: String) {
+        cancelAutomaticCommand()
+        val value = query.trim()
+        val isPhone = value.any(Char::isDigit) && value.all { it.isDigit() || it in "+-(). /#*" }
+        val intent = Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI).apply {
+            type = ContactsContract.Contacts.CONTENT_TYPE
+            putExtra(if (isPhone) ContactsContract.Intents.Insert.PHONE else ContactsContract.Intents.Insert.NAME, value)
+        }
+        if (!startSafely(intent)) requireContext().showToast(R.string.unable_to_open_contact)
+    }
 
     override fun onAppClick(app: AppModel) {
         viewModel.selectedApp(app, Constants.FLAG_LAUNCH_APP)

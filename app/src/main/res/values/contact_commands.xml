@@ -1,5 +1,8 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <string name="contact_commands">Contact Commands</string>
+    <string name="search_add_contact">Add New Contact</string>
+    <string name="contact_command_page">Contact page</string>
+    <string name="contact_command_menu_entry">%1$s - %2$s</string>
     <string name="contact_commands_hint">Type P, M, W, or C followed by a space and a contact name. Tap a result to choose it, or let a unique match open automatically.</string>
     <string name="contact_command_phone">Phone</string>
     <string name="contact_command_message">Message</string>

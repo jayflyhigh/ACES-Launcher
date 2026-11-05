@@ -38,7 +38,7 @@ class ContactCommandTestActivity : FragmentActivity() {
 }
 
 class CommandContactsProvider : ContentProvider() {
-    data class Person(val id: Long, val key: String, val name: String)
+    data class Person(val id: Long, val key: String, val name: String, val photoUri: String? = null)
     data class Number(val contactId: Long, val number: String, val type: Int, val preferred: Boolean = false)
 
     val people = mutableListOf(Person(1, "john", "John Smith"), Person(2, "jane", "Jane Doe"))
@@ -79,6 +79,7 @@ class CommandContactsProvider : ContentProvider() {
                     "contact_id" to person.id, "lookup" to person.key, "display_name" to person.name,
                     "data1" to number.number, "data4" to number.number,
                     "data2" to number.type, "data3" to null, "is_super_primary" to if (number.preferred) 1 else 0,
+                    ContactsContract.Contacts.PHOTO_THUMBNAIL_URI to person.photoUri,
                 )
                 cursor.addRow(columns.map { data[it] })
             }
@@ -88,7 +89,8 @@ class CommandContactsProvider : ContentProvider() {
                 lookupRedirects[uri.pathSegments[lookupIndex + 1]] else null
             val id = redirected ?: uri.lastPathSegment?.toLongOrNull()
             people.filter { id == null || it.id == id }.forEach { person ->
-                val data = mapOf("_id" to person.id, "lookup" to person.key, "display_name" to person.name)
+                val data = mapOf("_id" to person.id, "lookup" to person.key, "display_name" to person.name,
+                    ContactsContract.Contacts.PHOTO_THUMBNAIL_URI to person.photoUri)
                 cursor.addRow(columns.map { data[it] })
             }
         }

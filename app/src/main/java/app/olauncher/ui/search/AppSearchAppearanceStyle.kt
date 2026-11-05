@@ -47,6 +47,12 @@ internal fun AppSearchAppearance.applyMenu(binding: PopupSearchPageMenuBinding):
         tileColor ?: Color.rgb(32, 32, 32) else menuTileColor ?: Color.rgb(40, 40, 40)
     binding.searchPageSettings.background = searchTileSurface(binding.root.context, tileColor)
     binding.searchPageAppearance.background = searchTileSurface(binding.root.context, tileColor)
+    for (index in 0 until binding.contactCommands.childCount) {
+        (binding.contactCommands.getChildAt(index) as TextView).apply {
+            background = searchTileSurface(context, tileColor)
+            setTextColor(Color.WHITE)
+        }
+    }
     val tileCountRow = binding.decreaseTileCount.parent as View
     tileCountRow.background = searchTileSurface(binding.root.context, tileColor)
     binding.searchPageSettings.setTextColor(Color.WHITE)

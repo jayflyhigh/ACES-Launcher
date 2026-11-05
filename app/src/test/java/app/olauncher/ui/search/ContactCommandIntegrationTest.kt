@@ -61,6 +61,9 @@ class ContactCommandIntegrationTest {
     private fun results(fragment: UniversalSearchFragment) =
         fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView).adapter as SearchResultsAdapter
 
+    private fun contactResults(fragment: UniversalSearchFragment) =
+        results(fragment).currentList.filterIsInstance<SearchItem.ContactItem>()
+
     private fun query(fragment: UniversalSearchFragment, text: String) {
         fragment.requireView().findViewById<SearchView>(R.id.search).setQuery(text, false)
     }
@@ -82,7 +85,7 @@ class ContactCommandIntegrationTest {
             for (letter in listOf(command.letter, command.letter.uppercaseChar())) {
                 withSearch { activity, fragment, _ ->
                     query(fragment, "$letter john")
-                    awaitCommand { results(fragment).itemCount == 1 }
+                    awaitCommand { contactResults(fragment).size == 1 }
                     assertNull(shadowOf(activity).peekNextStartedActivity())
                     shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(249))
                     assertNull(shadowOf(activity).peekNextStartedActivity())
@@ -124,7 +127,7 @@ class ContactCommandIntegrationTest {
             for (command in ContactCommand.entries) {
                 withSearch(columns) { activity, fragment, _ ->
                     query(fragment, "${command.letter} john")
-                    awaitCommand { results(fragment).itemCount == 1 }
+                    awaitCommand { contactResults(fragment).size == 1 }
                     layout(fragment)
                     val recycler = fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView)
                     val tile = recycler.getChildAt(0)
@@ -144,7 +147,7 @@ class ContactCommandIntegrationTest {
         for (columns in 1..2) {
             withSearch(columns) { activity, fragment, _ ->
                 query(fragment, "p j")
-                awaitCommand { results(fragment).itemCount == 2 }
+                awaitCommand { contactResults(fragment).size == 2 }
                 layout(fragment)
                 val recycler = fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView)
                 val tile = recycler.getChildAt(0)
@@ -162,14 +165,14 @@ class ContactCommandIntegrationTest {
     fun `long press still opens details during command mode and inline shortcuts keep their actions`() {
         withSearch { activity, fragment, _ ->
             query(fragment, "m john")
-            awaitCommand { results(fragment).itemCount == 1 }
-            val contact = (results(fragment).currentList.single() as SearchItem.ContactItem).contact
+            awaitCommand { contactResults(fragment).size == 1 }
+            val contact = contactResults(fragment).single().contact
             fragment.onContactLongClick(contact)
             assertEquals(Intent.ACTION_VIEW, shadowOf(activity).nextStartedActivity.action)
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
             assertNull(shadowOf(activity).peekNextStartedActivity())
             query(fragment, "w john")
-            awaitCommand { results(fragment).itemCount == 1 }
+            awaitCommand { contactResults(fragment).size == 1 }
             fragment.onContactText(contact)
             assertEquals(Intent.ACTION_SENDTO, shadowOf(activity).nextStartedActivity.action)
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
@@ -184,13 +187,13 @@ class ContactCommandIntegrationTest {
                 delayMillis = 750, minimumCharacters = 4, showIndicator = false
             ))
             query(fragment, "p joh")
-            awaitCommand { results(fragment).itemCount == 1 }
+            awaitCommand { contactResults(fragment).size == 1 }
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
             assertNull(shadowOf(activity).peekNextStartedActivity())
             query(fragment, "p nobody")
-            awaitCommand { results(fragment).itemCount == 0 }
+            awaitCommand { contactResults(fragment).isEmpty() }
             query(fragment, "p john")
-            awaitCommand { results(fragment).itemCount == 1 }
+            awaitCommand { contactResults(fragment).size == 1 }
             assertEquals("Contacts", fragment.requireView().findViewById<TextView>(R.id.modeTitle).text.toString())
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(749))
             assertNull(shadowOf(activity).peekNextStartedActivity())
@@ -203,7 +206,7 @@ class ContactCommandIntegrationTest {
     fun `disabled auto execution still supports uniquely submitted command`() {
         withSearch(automatic = false) { activity, fragment, _ ->
             query(fragment, "m john")
-            awaitCommand { results(fragment).itemCount == 1 }
+            awaitCommand { contactResults(fragment).size == 1 }
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
             assertNull(shadowOf(activity).peekNextStartedActivity())
             fragment.requireView().findViewById<SearchView>(R.id.search).setQuery("m john", true)
@@ -216,13 +219,13 @@ class ContactCommandIntegrationTest {
     fun `rapid query changes ambiguity and loading cannot launch stale results`() {
         withSearch { activity, fragment, _ ->
             query(fragment, "p john")
-            awaitCommand { results(fragment).itemCount == 1 }
+            awaitCommand { contactResults(fragment).size == 1 }
             query(fragment, "p j")
-            awaitCommand { results(fragment).itemCount == 2 }
+            awaitCommand { contactResults(fragment).size == 2 }
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
             assertNull(shadowOf(activity).peekNextStartedActivity())
             query(fragment, "p jane")
-            awaitCommand { results(fragment).itemCount == 1 }
+            awaitCommand { contactResults(fragment).size == 1 }
             val vm = ViewModelProvider(activity)[MainViewModel::class.java]
             vm.contactsLoading.value = true
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
@@ -238,7 +241,7 @@ class ContactCommandIntegrationTest {
     fun `composing text never automatically executes`() {
         withSearch { activity, fragment, _ ->
             query(fragment, "p john")
-            awaitCommand { results(fragment).itemCount == 1 }
+            awaitCommand { contactResults(fragment).size == 1 }
             val editor = fragment.requireView().findViewById<EditText>(R.id.search_src_text)
             BaseInputConnection.setComposingSpans(editor.text)
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
@@ -250,7 +253,7 @@ class ContactCommandIntegrationTest {
     fun `returning and recreating never repeats an executed command`() {
         withSearch { activity, fragment, _ ->
             query(fragment, "p john")
-            awaitCommand { results(fragment).itemCount == 1 }
+            awaitCommand { contactResults(fragment).size == 1 }
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(250))
             awaitCommand { shadowOf(activity).peekNextStartedActivity() != null }
             shadowOf(activity).nextStartedActivity
@@ -272,7 +275,7 @@ class ContactCommandIntegrationTest {
     fun `leaving before stabilization cancels pending automatic execution`() {
         withSearch { activity, fragment, _ ->
             query(fragment, "p john")
-            awaitCommand { results(fragment).itemCount == 1 }
+            awaitCommand { contactResults(fragment).size == 1 }
             searchController.pause().stop()
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
             assertNull(shadowOf(activity).peekNextStartedActivity())
@@ -299,14 +302,14 @@ class ContactCommandIntegrationTest {
         withSearch(automatic = false) { _, fragment, provider ->
             val count = provider.queryCount
             query(fragment, "W ")
-            assertEquals("WhatsApp", fragment.requireView().findViewById<TextView>(R.id.commandIndicator).text.toString())
+            assertEquals(View.GONE, fragment.requireView().findViewById<View>(R.id.commandIndicator).visibility)
             assertEquals("Contacts", fragment.requireView().findViewById<TextView>(R.id.modeTitle).text.toString())
             query(fragment, "john")
-            awaitCommand { results(fragment).itemCount == 1 }
+            awaitCommand { contactResults(fragment).size == 1 }
             assertEquals("Contacts", fragment.requireView().findViewById<TextView>(R.id.modeTitle).text.toString())
             assertEquals(View.GONE, fragment.requireView().findViewById<View>(R.id.commandIndicator).visibility)
             assertEquals(count, provider.queryCount)
-            fragment.onContactClick((results(fragment).currentList.single() as SearchItem.ContactItem).contact)
+            fragment.onContactClick(contactResults(fragment).single().contact)
         }
     }
 }

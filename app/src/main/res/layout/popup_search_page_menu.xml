@@ -28,6 +28,13 @@
         android:text="@string/search_appearance" />
 
     <LinearLayout
+        android:id="@+id/contactCommands"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone" />
+
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:layout_marginTop="8dp"

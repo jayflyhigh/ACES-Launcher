@@ -138,7 +138,7 @@ class SearchRedesignTest {
             awaitCommand { count(fragment) == "1 result" }
             search.setQuery("not present", false)
             awaitCommand { count(fragment) == "0 results" }
-            assertEquals(View.VISIBLE, root.findViewById<View>(R.id.emptyState).visibility)
+            assertEquals(View.GONE, root.findViewById<View>(R.id.emptyState).visibility)
             assertEquals("No contacts found", root.findViewById<TextView>(R.id.emptyMessage).text.toString())
             vm.contactsLoading.value = true
             awaitCommand { root.findViewById<View>(R.id.emptyState).visibility == View.GONE }
@@ -295,6 +295,116 @@ class SearchRedesignTest {
                 )
                 assertEquals(View.GONE, root.findViewById<View>(R.id.commandIndicator).visibility)
             }
+        }
+    }
+
+    @Test
+    fun `add contact is last full width result and prefills names or numbers`() {
+        for (columns in 1..2) withPage(SearchMode.CONTACTS_ONLY, columns) { activity, fragment, _ ->
+            val root = fragment.requireView()
+            val search = root.findViewById<SearchView>(R.id.search)
+            val list = root.findViewById<RecyclerView>(R.id.recyclerView)
+            val adapter = list.adapter as SearchResultsAdapter
+            assertTrue(adapter.currentList.none { it is SearchItem.AddContact })
+            for ((query, value) in listOf("john" to "john", "+1 (555) 456-7890" to "+1 (555) 456-7890", "m Alex New" to "Alex New")) {
+                search.setQuery(query, false)
+                awaitCommand { adapter.currentList.lastOrNull() == SearchItem.AddContact(value) }
+                layout(fragment)
+                val position = adapter.itemCount - 1
+                assertEquals(columns, (list.layoutManager as GridLayoutManager).spanSizeLookup.getSpanSize(position))
+                val row = list.findViewHolderForAdapterPosition(position)!!.itemView
+                assertEquals("Add New Contact", row.findViewById<TextView>(R.id.itemTitle).text.toString())
+                row.performClick()
+                val intent = shadowOf(activity).nextStartedActivity
+                assertEquals(android.content.Intent.ACTION_INSERT, intent.action)
+                assertEquals(android.provider.ContactsContract.Contacts.CONTENT_TYPE, intent.type)
+                val number = query.startsWith("+")
+                val extra = if (number) android.provider.ContactsContract.Intents.Insert.PHONE
+                    else android.provider.ContactsContract.Intents.Insert.NAME
+                assertEquals(value, intent.getStringExtra(extra))
+                assertNull(intent.getStringExtra(if (number) android.provider.ContactsContract.Intents.Insert.NAME
+                    else android.provider.ContactsContract.Intents.Insert.PHONE))
+            }
+            search.setQuery("m ", false)
+            awaitCommand { adapter.currentList.none { it is SearchItem.AddContact } }
+        }
+    }
+
+    @Test
+    fun `contact menu commands have ordered icons and replace the prefix while retaining the name`() {
+        withPage(SearchMode.CONTACTS_ONLY) { activity, fragment, _ ->
+            val root = fragment.requireView()
+            val search = root.findViewById<SearchView>(R.id.search)
+            search.setQuery("john", false)
+            val labels = listOf("P - Phone", "M - Message", "W - WhatsApp", "C - Contact page")
+            for (command in ContactCommand.entries + ContactCommand.CONTACT) {
+                val index = ContactCommand.entries.indexOf(command)
+                root.findViewById<View>(R.id.searchPageMenu).performClick()
+                val field = UniversalSearchFragment::class.java.getDeclaredField("activePopupWindow").apply { isAccessible = true }
+                val popup = field.get(fragment) as PopupWindow
+                val group = popup.contentView.findViewById<android.widget.LinearLayout>(R.id.contactCommands)
+                assertEquals(View.VISIBLE, group.visibility)
+                assertEquals(4, group.childCount)
+                for (entryIndex in labels.indices) {
+                    val entry = group.getChildAt(entryIndex) as TextView
+                    assertEquals(labels[entryIndex], entry.text.toString())
+                    assertNotNull(entry.compoundDrawablesRelative[0])
+                }
+                group.getChildAt(index).performClick()
+                assertFalse(popup.isShowing)
+                assertEquals("${command.letter} john", search.query.toString())
+                val text = root.findViewById<TextView>(R.id.search_src_text).text as android.text.Spanned
+                assertEquals(1, text.getSpans(0, 1, android.text.style.ImageSpan::class.java).size)
+                assertNull(shadowOf(activity).peekNextStartedActivity())
+            }
+        }
+    }
+
+    @Test
+    @Config(sdk = [28])
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun `contact photo replaces the person icon with no tint and unreadable photos fall back`() {
+        withPage(SearchMode.CONTACTS_ONLY) { activity, fragment, vm ->
+            val photoUri = android.net.Uri.parse("content://com.android.contacts/photos/test")
+            val bitmap = Bitmap.createBitmap(24, 24, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.RED) }
+            val bytes = java.io.ByteArrayOutputStream().apply { bitmap.compress(Bitmap.CompressFormat.PNG, 100, this) }.toByteArray()
+            shadowOf(activity.contentResolver).registerInputStream(photoUri, java.io.ByteArrayInputStream(bytes))
+            vm.contacts.value = listOf(Contact(1, "john", "John Smith", "+15551000", null, photoUri.toString()))
+            val list = fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView)
+            val adapter = list.adapter as SearchResultsAdapter
+            awaitCommand { (adapter.currentList.firstOrNull() as? SearchItem.ContactItem)?.contact?.photoUri == photoUri.toString() }
+            layout(fragment)
+            val image = list.getChildAt(0).findViewById<android.widget.ImageView>(R.id.itemIcon)
+            awaitCommand { image.drawable is android.graphics.drawable.BitmapDrawable }
+            assertNull(image.imageTintList)
+            assertEquals(Color.RED, (image.drawable as android.graphics.drawable.BitmapDrawable).bitmap.getPixel(0, 0))
+            shadowOf(activity.contentResolver).registerInputStream(android.net.Uri.parse("content://missing/photo"),
+                object : java.io.InputStream() {
+                    override fun read(): Int = throw java.io.FileNotFoundException("Missing test photo")
+                })
+            vm.contacts.value = listOf(Contact(2, "jane", "Jane Doe", null, null, "content://missing/photo"))
+            awaitCommand { (adapter.currentList.firstOrNull() as? SearchItem.ContactItem)?.contact?.id == 2L }
+            layout(fragment)
+            val fallback = list.getChildAt(0).findViewById<android.widget.ImageView>(R.id.itemIcon)
+            assertNotNull(fallback.drawable)
+            assertNotNull(fallback.imageTintList)
+            bitmap.recycle()
+        }
+    }
+
+    @Test
+    fun `contact loader includes thumbnail uris for contacts with and without numbers`() {
+        withPage(SearchMode.CONTACTS_ONLY) { activity, _, _ ->
+            CommandContactsProvider().apply {
+                people[0] = people[0].copy(photoUri = "content://com.android.contacts/photos/1")
+                people.add(CommandContactsProvider.Person(3, "alex", "Alex New", "content://com.android.contacts/photos/3"))
+                install()
+            }
+            val contacts = ContactsLoader.load(activity).associateBy { it.id }
+            assertEquals("content://com.android.contacts/photos/1", contacts[1]?.photoUri)
+            assertNull(contacts[2]?.photoUri)
+            assertEquals("content://com.android.contacts/photos/3", contacts[3]?.photoUri)
+            assertNull(contacts[3]?.number)
         }
     }
 

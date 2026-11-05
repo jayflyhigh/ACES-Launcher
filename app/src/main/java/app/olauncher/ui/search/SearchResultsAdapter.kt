@@ -3,6 +3,9 @@ package app.olauncher.ui.search
 import android.content.Context
 import android.content.pm.LauncherApps
 import android.graphics.drawable.Drawable
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.view.isVisible
@@ -32,6 +35,7 @@ sealed class SearchItem {
     data class ContactItem(val contact: Contact) : SearchItem()
     data class Engine(val engine: SearchEngine, val matched: Boolean) : SearchItem()
     data class Permission(val label: String) : SearchItem()
+    data class AddContact(val query: String) : SearchItem()
 }
 
 interface SearchActions {
@@ -46,6 +50,7 @@ interface SearchActions {
     fun onEngineClick(engine: SearchEngine)
     fun onResultMenu(item: SearchItem, anchor: View)
     fun onPermissionClick()
+    fun onAddContact(query: String)
 }
 
 class SearchResultsAdapter(
@@ -98,7 +103,7 @@ class SearchResultsAdapter(
             binding.itemTitle.alpha = 1f
             binding.itemType.isVisible = true
             binding.contactActions.isVisible = false
-            binding.itemMenu.isVisible = item !is SearchItem.Permission && item !is SearchItem.ContactItem
+            binding.itemMenu.isVisible = item is SearchItem.App || item is SearchItem.Engine
             binding.root.setOnLongClickListener(null)
             binding.root.isLongClickable = false
             when (item) {
@@ -118,6 +123,7 @@ class SearchResultsAdapter(
                     binding.itemTitle.text = item.contact.name
                     binding.itemType.isVisible = false
                     setIcon(R.drawable.ic_person)
+                    loadContactPhoto(item.contact)
                     binding.contactActions.isVisible = tileCount == 1
                     if (tileCount == 1) {
                         val density = binding.root.resources.displayMetrics.density
@@ -153,6 +159,12 @@ class SearchResultsAdapter(
                     setIcon(R.drawable.ic_person)
                     binding.root.setOnClickListener { actions.onPermissionClick() }
                 }
+                is SearchItem.AddContact -> {
+                    binding.itemTitle.setText(R.string.search_add_contact)
+                    binding.itemType.isVisible = false
+                    setIcon(R.drawable.ic_add)
+                    binding.root.setOnClickListener { actions.onAddContact(item.query) }
+                }
                 is SearchItem.Header -> Unit
             }
             binding.itemMenu.contentDescription = binding.root.context.getString(
@@ -181,6 +193,39 @@ class SearchResultsAdapter(
             binding.itemIcon.setImageDrawable(null)
             binding.itemIcon.isVisible = false
             binding.root.isActivated = false
+        }
+
+        fun loadContactPhoto(contact: Contact) {
+            val uri = contact.photoUri?.takeIf { it.isNotBlank() } ?: return
+            val key = "contact-photo|${contact.id}|$uri"
+            binding.itemIcon.tag = key
+            fun applyPhoto(state: Drawable.ConstantState) {
+                binding.itemIcon.imageTintList = null
+                binding.itemIcon.setImageDrawable(state.newDrawable(binding.root.resources).mutate())
+            }
+            iconCache.get(key)?.let {
+                applyPhoto(it)
+                return
+            }
+            val context = binding.root.context.applicationContext
+            iconJob = iconScope.launch {
+                val state = try {
+                    context.contentResolver.openInputStream(Uri.parse(uri))?.use { stream ->
+                        BitmapFactory.decodeStream(stream)?.let { BitmapDrawable(context.resources, it).constantState }
+                    }
+                } catch (_: SecurityException) {
+                    null
+                } catch (_: java.io.IOException) {
+                    null
+                } catch (_: IllegalArgumentException) {
+                    null
+                }
+                if (state != null) iconCache.put(key, state)
+                withContext(Dispatchers.Main) {
+                    if (bindingAdapterPosition != RecyclerView.NO_POSITION && binding.itemIcon.tag == key && state != null)
+                        applyPhoto(state)
+                }
+            }
         }
 
         fun loadIcon(app: AppModel) {
@@ -251,6 +296,7 @@ class SearchResultsAdapter(
                 oldItem is SearchItem.ContactItem && newItem is SearchItem.ContactItem -> oldItem.contact.id == newItem.contact.id
                 oldItem is SearchItem.Engine && newItem is SearchItem.Engine -> oldItem.engine.id == newItem.engine.id
                 oldItem is SearchItem.Permission && newItem is SearchItem.Permission -> true
+                oldItem is SearchItem.AddContact && newItem is SearchItem.AddContact -> true
                 else -> false
             }
 

@@ -13,6 +13,7 @@ data class Contact(
     val name: String,
     val number: String?,
     val normalizedNumber: String?,
+    val photoUri: String? = null,
 )
 
 object ContactsLoader {
@@ -37,6 +38,7 @@ object ContactsLoader {
                     ContactsContract.CommonDataKinds.Phone.NUMBER,
                     ContactsContract.CommonDataKinds.Phone.NORMALIZED_NUMBER,
                     ContactsContract.CommonDataKinds.Phone.IS_SUPER_PRIMARY,
+                    ContactsContract.CommonDataKinds.Phone.PHOTO_THUMBNAIL_URI,
                 ),
                 null, null, null
             )?.use { c ->
@@ -46,7 +48,7 @@ object ContactsLoader {
                     val isPrimary = c.getInt(5) != 0
                     if (byId.containsKey(id) && (!isPrimary || id in primaryIds)) continue
                     if (isPrimary) primaryIds.add(id)
-                    byId[id] = Contact(id, c.getString(1) ?: "", name, c.getString(3), c.getString(4))
+                    byId[id] = Contact(id, c.getString(1) ?: "", name, c.getString(3), c.getString(4), c.getString(6))
                 }
             }
 
@@ -56,6 +58,7 @@ object ContactsLoader {
                     ContactsContract.Contacts._ID,
                     ContactsContract.Contacts.LOOKUP_KEY,
                     ContactsContract.Contacts.DISPLAY_NAME_PRIMARY,
+                    ContactsContract.Contacts.PHOTO_THUMBNAIL_URI,
                 ),
                 null, null, null
             )?.use { c ->
@@ -63,7 +66,7 @@ object ContactsLoader {
                     val id = c.getLong(0)
                     if (byId.containsKey(id)) continue
                     val name = c.getString(2)?.takeIf { it.isNotBlank() } ?: continue
-                    byId[id] = Contact(id, c.getString(1) ?: "", name, null, null)
+                    byId[id] = Contact(id, c.getString(1) ?: "", name, null, null, c.getString(3))
                 }
             }
         } catch (e: Exception) {
