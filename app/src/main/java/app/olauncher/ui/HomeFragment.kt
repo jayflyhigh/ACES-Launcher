@@ -1,8 +1,10 @@
 package app.olauncher.ui
 
 import android.app.admin.DevicePolicyManager
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.LauncherApps
 import android.content.res.Configuration
 import android.os.BatteryManager
@@ -19,7 +21,11 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnLayout
 import androidx.core.view.isVisible
 import androidx.core.view.setPadding
 import androidx.lifecycle.Observer
@@ -50,6 +56,7 @@ import app.olauncher.ui.quickactions.QuickActionsMenu
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.max
 
 class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListener {
 
@@ -60,6 +67,12 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
     private var quickActions: QuickActionsMenu? = null
+    private var batteryReceiverRegistered = false
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            intent?.let(::updateBatteryWidget)
+        }
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
@@ -79,11 +92,47 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         setHomeAlignment(prefs.homeAlignment)
         initSwipeTouchListener()
         initClickListeners()
+        ViewCompat.setOnApplyWindowInsetsListener(binding.homeWidget.root) { _, insets ->
+            val nav = insets.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.navigationBars())
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val params = binding.homeWidget.homeWidgetPanel.layoutParams as ViewGroup.MarginLayoutParams
+            val left = 12.dpToPx() + max(nav.left, cutout.left)
+            val right = 12.dpToPx() + max(nav.right, cutout.right)
+            params.bottomMargin = 12.dpToPx() + max(nav.bottom, cutout.bottom)
+            params.setMargins(left, params.topMargin, right, params.bottomMargin)
+            binding.homeWidget.homeWidgetPanel.layoutParams = params
+            positionHomeContentAboveWidget()
+            insets
+        }
         quickActions = QuickActionsMenu(this, binding.quickActions, viewModel)
     }
 
     private fun openQuickActions() {
         quickActions?.show()
+    }
+
+    private fun positionHomeContentAboveWidget() {
+        val panel = binding.homeWidget.homeWidgetPanel
+        if (panel.height == 0) {
+            panel.doOnLayout {
+                if (_binding != null) positionHomeContentAboveWidget()
+            }
+            return
+        }
+
+        val panelBottomMargin = (panel.layoutParams as ViewGroup.MarginLayoutParams).bottomMargin
+        val reservedHeight = panel.height + panelBottomMargin
+        (binding.homeAppsLayout.layoutParams as FrameLayout.LayoutParams).apply {
+            bottomMargin = reservedHeight
+            binding.homeAppsLayout.layoutParams = this
+        }
+        val promptMargin = reservedHeight + 8.dpToPx()
+        listOf(binding.firstRunTips, binding.setDefaultLauncher).forEach { prompt ->
+            (prompt.layoutParams as FrameLayout.LayoutParams).apply {
+                bottomMargin = promptMargin
+                prompt.layoutParams = this
+            }
+        }
     }
 
     override fun onStop() {
@@ -94,9 +143,18 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
     override fun onResume() {
         super.onResume()
         populateHomeScreen(false)
+        registerBatteryReceiver()
         viewModel.isOlauncherDefault()
         if (prefs.showStatusBar) showStatusBar()
         else hideStatusBar()
+    }
+
+    override fun onPause() {
+        if (batteryReceiverRegistered) {
+            requireContext().unregisterReceiver(batteryReceiver)
+            batteryReceiverRegistered = false
+        }
+        super.onPause()
     }
 
     override fun onClick(view: View) {
@@ -106,6 +164,9 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
             // R.id.recents -> {}
             R.id.clock -> openClockApp()
             R.id.date -> openCalendarApp()
+            R.id.widgetHour, R.id.widgetMinute, R.id.widgetAmPm -> openClockApp()
+            R.id.widgetBattery -> openBatteryApp()
+            R.id.widgetDate -> openCalendarApp()
             R.id.setDefaultLauncher -> viewModel.resetLauncherLiveData.call()
             R.id.tvScreenTime -> openScreenTimeDigitalWellbeing()
 
@@ -144,6 +205,54 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
             )
     }
 
+    private fun openBatteryApp() {
+        if (prefs.batteryAppPackage.isNotBlank()) {
+            launchApp(
+                "Battery",
+                prefs.batteryAppPackage,
+                prefs.batteryAppClassName,
+                prefs.batteryAppUser
+            )
+            return
+        }
+
+        try {
+            startActivity(Intent("android.intent.action.POWER_USAGE_SUMMARY"))
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(android.provider.Settings.ACTION_BATTERY_SAVER_SETTINGS))
+            } catch (_: Exception) {
+                startActivity(Intent(android.provider.Settings.ACTION_SETTINGS))
+            }
+        }
+    }
+
+    private fun registerBatteryReceiver() {
+        if (batteryReceiverRegistered) return
+        ContextCompat.registerReceiver(
+            requireContext(),
+            batteryReceiver,
+            IntentFilter(Intent.ACTION_BATTERY_CHANGED),
+            ContextCompat.RECEIVER_EXPORTED,
+        )
+        batteryReceiverRegistered = true
+    }
+
+    private fun updateBatteryWidget(intent: Intent) {
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+        val percentage = ((level.coerceAtLeast(0) * 100f) / scale).toInt().coerceIn(0, 100)
+        val charging = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1) == BatteryManager.BATTERY_STATUS_CHARGING
+        binding.homeWidget.widgetBatteryPercent.text = getString(R.string.battery_percentage, percentage)
+        binding.homeWidget.widgetBattery.contentDescription = getString(
+            if (charging) R.string.battery_accessibility_charging else R.string.battery_accessibility,
+            percentage,
+        )
+        binding.homeWidget.widgetBatteryIcon.setImageResource(
+            if (charging) R.drawable.ic_battery_charging_widget else R.drawable.ic_battery_widget,
+        )
+    }
+
     override fun onLongClick(view: View): Boolean {
         when (view.id) {
             R.id.homeApp1 -> showAppList(Constants.FLAG_SET_HOME_APP_1, prefs.appName1.isNotEmpty(), true)
@@ -166,6 +275,27 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
                 prefs.calendarAppPackage = ""
                 prefs.calendarAppClassName = ""
                 prefs.calendarAppUser = ""
+            }
+
+            R.id.widgetHour, R.id.widgetMinute, R.id.widgetAmPm -> {
+                showAppList(Constants.FLAG_SET_CLOCK_APP)
+                prefs.clockAppPackage = ""
+                prefs.clockAppClassName = ""
+                prefs.clockAppUser = ""
+            }
+
+            R.id.widgetDate -> {
+                showAppList(Constants.FLAG_SET_CALENDAR_APP)
+                prefs.calendarAppPackage = ""
+                prefs.calendarAppClassName = ""
+                prefs.calendarAppUser = ""
+            }
+
+            R.id.widgetBattery -> {
+                showAppList(Constants.FLAG_SET_BATTERY_APP)
+                prefs.batteryAppPackage = ""
+                prefs.batteryAppClassName = ""
+                prefs.batteryAppUser = ""
             }
 
             R.id.tvScreenTime -> {
@@ -248,6 +378,13 @@ class HomeFragment : BaseFragment(), View.OnClickListener, View.OnLongClickListe
         binding.setDefaultLauncher.setOnLongClickListener(this)
         binding.tvScreenTime.setOnClickListener(this)
         binding.tvScreenTime.setOnLongClickListener(this)
+        listOf(
+            binding.homeWidget.widgetHour,
+            binding.homeWidget.widgetMinute,
+            binding.homeWidget.widgetAmPm,
+            binding.homeWidget.widgetBattery,
+            binding.homeWidget.widgetDate,
+        ).forEach { it.setOnTouchListener(getViewSwipeTouchListener(requireContext(), it)) }
 
         // These fire only on d-pad/keyboard events; touch is consumed by ViewSwipeTouchListener
         binding.homeApp1.setOnClickListener(this)

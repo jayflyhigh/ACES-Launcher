@@ -207,6 +207,10 @@
         android:visibility="gone" />
 
     <include
+        android:id="@+id/homeWidget"
+        layout="@layout/layout_home_widget" />
+
+    <include
         android:id="@+id/quickActions"
         layout="@layout/layout_quick_actions" />
 </FrameLayout>
