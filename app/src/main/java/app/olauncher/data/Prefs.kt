@@ -97,6 +97,9 @@ class Prefs(context: Context) {
     private val SCREEN_TIME_APP_PACKAGE = "SCREEN_TIME_APP_PACKAGE"
     private val SCREEN_TIME_APP_USER = "SCREEN_TIME_APP_USER"
     private val SCREEN_TIME_APP_CLASS_NAME = "SCREEN_TIME_APP_CLASS_NAME"
+    private val BATTERY_APP_PACKAGE = "BATTERY_APP_PACKAGE"
+    private val BATTERY_APP_USER = "BATTERY_APP_USER"
+    private val BATTERY_APP_CLASS_NAME = "BATTERY_APP_CLASS_NAME"
 
     private val IS_SHORTCUT_1 = "IS_SHORTCUT_1"
     private val SHORTCUT_ID_1 = "SHORTCUT_ID_1"
@@ -550,6 +553,18 @@ class Prefs(context: Context) {
         get() = prefs.getString(SCREEN_TIME_APP_CLASS_NAME, "").toString()
         set(value) = prefs.edit { putString(SCREEN_TIME_APP_CLASS_NAME, value).apply() }
 
+    var batteryAppPackage: String
+        get() = prefs.getString(BATTERY_APP_PACKAGE, "").toString()
+        set(value) = prefs.edit { putString(BATTERY_APP_PACKAGE, value).apply() }
+
+    var batteryAppUser: String
+        get() = prefs.getString(BATTERY_APP_USER, "").toString()
+        set(value) = prefs.edit { putString(BATTERY_APP_USER, value).apply() }
+
+    var batteryAppClassName: String?
+        get() = prefs.getString(BATTERY_APP_CLASS_NAME, "").toString()
+        set(value) = prefs.edit { putString(BATTERY_APP_CLASS_NAME, value).apply() }
+
     var isShortcut1: Boolean
         get() = prefs.getBoolean(IS_SHORTCUT_1, false)
         set(value) = prefs.edit { putBoolean(IS_SHORTCUT_1, value) }
@@ -734,6 +749,7 @@ class Prefs(context: Context) {
         if (clockAppPackage == packageName) clockAppClassName = activityClassName
         if (calendarAppPackage == packageName) calendarAppClassName = activityClassName
         if (screenTimeAppPackage == packageName) screenTimeAppClassName = activityClassName
+        if (batteryAppPackage == packageName) batteryAppClassName = activityClassName
         if (appPackageSwipeLeft == packageName) appActivityClassNameSwipeLeft = activityClassName
         if (appPackageSwipeRight == packageName) appActivityClassNameRight = activityClassName
     }
