@@ -55,5 +55,6 @@
         android:background="@drawable/bg_search_button"
         android:padding="14dp"
         android:src="@drawable/ic_search_more"
+        android:tint="@color/search_secondary"
         android:contentDescription="@string/search_page_menu" />
 </LinearLayout>

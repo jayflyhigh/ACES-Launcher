@@ -205,7 +205,9 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             minimumWidth = 0
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q)
                 setTextCursorDrawable(R.drawable.search_cursor)
+            setOnFocusChangeListener { _, focused -> binding.search.isActivated = focused }
         }
+        binding.search.isActivated = searchTextView?.hasFocus() == true
         binding.search.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 submit(query.orEmpty())

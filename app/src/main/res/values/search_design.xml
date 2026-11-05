@@ -1,7 +1,11 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <color name="search_surface">#202020</color>
-    <color name="search_outline">#363636</color>
-    <color name="search_secondary">#B3B3B3</color>
+    <color name="search_background">#000000</color>
+    <color name="search_surface">#1C1F23</color>
+    <color name="search_surface_pressed">#272B30</color>
+    <color name="search_outline">#343940</color>
+    <color name="search_accent">#B7DF70</color>
+    <color name="search_outline_active">#718E48</color>
+    <color name="search_secondary">#ABB2BB</color>
     <string name="search_anything">Search Anything</string>
     <string name="search_heading_engines">Search Engines</string>
     <string name="search_appearance">Page appearance</string>
@@ -11,6 +15,7 @@
     <string name="search_type_engine">Search Engine</string>
     <string name="search_type_shortcut">Shortcut</string>
     <dimen name="search_top_space">64dp</dimen>
+    <dimen name="search_corner_radius">16dp</dimen>
     <string name="search_no_apps">No apps found</string>
     <string name="search_no_contacts">No contacts found</string>
     <string name="search_no_engines">No search engines found</string>

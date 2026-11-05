@@ -89,15 +89,23 @@ internal class AppSearchTileStyle(private val binding: ItemSearchAppBinding) {
 }
 
 internal fun searchTileSurface(context: Context, color: Int? = null): Drawable {
-    val base = color ?: Color.rgb(32, 32, 32)
-    fun shape(fill: Int) = GradientDrawable().apply {
+    val base = color ?: ContextCompat.getColor(context, R.color.search_surface)
+    val pressed = ContextCompat.getColor(context, R.color.search_surface_pressed)
+    val outline = ContextCompat.getColor(context, R.color.search_outline)
+    val activeOutline = ContextCompat.getColor(context, R.color.search_outline_active)
+    val accent = ContextCompat.getColor(context, R.color.search_accent)
+    fun shape(fill: Int, stroke: Int = outline) = GradientDrawable().apply {
         setColor(fill)
-        cornerRadius = 16 * context.resources.displayMetrics.density
-        setStroke((context.resources.displayMetrics.density).roundToInt().coerceAtLeast(1), Color.rgb(54, 54, 54))
+        cornerRadius = context.resources.getDimension(R.dimen.search_corner_radius)
+        setStroke(context.resources.displayMetrics.density.roundToInt().coerceAtLeast(1), stroke)
     }
     return android.graphics.drawable.StateListDrawable().apply {
-        addState(intArrayOf(android.R.attr.state_pressed), shape(ColorUtils.blendARGB(base, Color.WHITE, 0.07f)))
-        addState(intArrayOf(android.R.attr.state_focused), shape(ColorUtils.blendARGB(base, Color.WHITE, 0.07f)))
+        addState(intArrayOf(android.R.attr.state_pressed), shape(pressed))
+        addState(intArrayOf(android.R.attr.state_focused), shape(base, activeOutline))
+        addState(
+            intArrayOf(android.R.attr.state_activated),
+            shape(ColorUtils.blendARGB(base, accent, 0.12f), activeOutline),
+        )
         addState(intArrayOf(), shape(base))
         val duration = if (context.isSystemAnimationsDisabled()) 0 else 80
         setEnterFadeDuration(duration)
