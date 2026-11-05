@@ -6,20 +6,17 @@ import android.graphics.drawable.Drawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.core.view.isVisible
-import androidx.core.view.updateLayoutParams
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import android.util.LruCache
-import android.util.TypedValue
 import android.view.View
 import app.olauncher.data.AppModel
 import app.olauncher.data.AppSearchAppearance
 import app.olauncher.data.Contact
 import app.olauncher.data.SearchEngine
+import app.olauncher.R
 import app.olauncher.databinding.ItemSearchAppBinding
-import app.olauncher.databinding.ItemSearchContactBinding
-import app.olauncher.databinding.ItemSearchEngineBinding
 import app.olauncher.databinding.ItemSearchHeaderBinding
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,6 +44,7 @@ interface SearchActions {
     fun onContactText(contact: Contact)
     fun onContactWhatsApp(contact: Contact)
     fun onEngineClick(engine: SearchEngine)
+    fun onResultMenu(item: SearchItem, anchor: View)
     fun onPermissionClick()
 }
 
@@ -74,131 +72,79 @@ class SearchResultsAdapter(
 
     override fun getItemViewType(position: Int) = when (getItem(position)) {
         is SearchItem.Header -> TYPE_HEADER
-        is SearchItem.App, is SearchItem.Permission -> TYPE_APP
-        is SearchItem.ContactItem -> TYPE_CONTACT
-        is SearchItem.Engine -> TYPE_ENGINE
+        else -> TYPE_RESULT
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
             TYPE_HEADER -> HeaderHolder(ItemSearchHeaderBinding.inflate(inflater, parent, false))
-            TYPE_CONTACT -> ContactHolder(ItemSearchContactBinding.inflate(inflater, parent, false))
-            TYPE_ENGINE -> EngineHolder(ItemSearchEngineBinding.inflate(inflater, parent, false))
             else -> AppHolder(ItemSearchAppBinding.inflate(inflater, parent, false))
         }
     }
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
-        when (val item = getItem(position)) {
-            is SearchItem.Header -> (holder as HeaderHolder).binding.headerTitle.apply {
+        val item = getItem(position)
+        if (item is SearchItem.Header) {
+            (holder as HeaderHolder).binding.headerTitle.apply {
                 text = item.title
                 gravity = labelGravity
-                appAppearance?.applyResultSurface(this, this)
             }
-
-            is SearchItem.App -> (holder as AppHolder).apply {
-                binding.itemTitle.apply {
-                    text = buildString {
-                        append(item.app.appLabel)
-                        if (item.app.isNew) append(" ✦")
-                    }
-                    alpha = 1f
-                }
-                loadIcon(item.app)
-                val appearance = appAppearance
-                if (appearance != null) {
-                    appStyle.apply(appearance, tileCount, labelGravity)
-                } else {
-                    binding.itemTitle.gravity = labelGravity
-                    binding.itemTitle.maxLines = if (tileCount == 2) 2 else 1
-                    val density = binding.root.resources.displayMetrics.density
-                    val horizontalPadding = ((if (tileCount == 2) 12 else 24) * density).toInt()
-                    binding.root.setPadding(horizontalPadding, 0, horizontalPadding, 0)
-                    binding.itemIcon.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-                        marginEnd = ((if (tileCount == 2) 8 else 16) * density).toInt()
-                    }
-                }
-                binding.root.setOnClickListener { actions.onAppClick(item.app) }
-                binding.root.setOnLongClickListener {
-                    actions.onAppLongClick(item.app)
-                    true
-                }
-            }
-
-            is SearchItem.Permission -> (holder as AppHolder).apply {
-                binding.itemTitle.apply {
-                    text = item.label
-                    gravity = labelGravity
-                    alpha = 0.6f
-                    maxLines = 1
-                }
-                clearIcon()
-                appAppearance?.applyResultSurface(binding.root, binding.itemTitle)
-                binding.root.setOnClickListener { actions.onPermissionClick() }
-                binding.root.setOnLongClickListener(null)
-            }
-
-            is SearchItem.ContactItem -> (holder as ContactHolder).binding.apply {
-                val contact = item.contact
-                contactName.text = contact.name
-                val tileLayout = tileCount == 2
-                contactIcon.isVisible = !tileLayout
-                contactName.apply {
-                    gravity = if (tileLayout) android.view.Gravity.CENTER else labelGravity
-                    maxLines = if (tileLayout) Int.MAX_VALUE else 1
-                    ellipsize = if (tileLayout) null else android.text.TextUtils.TruncateAt.END
-                    val sidePadding = ((if (tileLayout) 8 else 12) * root.resources.displayMetrics.density).toInt()
-                    setPadding(sidePadding, paddingTop, sidePadding, paddingBottom)
-                }
-                contactCall.isVisible = !tileLayout && !contact.number.isNullOrBlank()
-                contactText.isVisible = !tileLayout && !contact.number.isNullOrBlank()
-                contactWhatsApp.isVisible = !tileLayout && !contact.number.isNullOrBlank()
-                if (tileLayout) {
-                    contactMain.background = null
-                    // Clearing a listener makes a View clickable, even when the listener is null.
-                    contactMain.setOnClickListener(null)
-                    contactMain.isClickable = false
-                    contactMain.isLongClickable = false
-                    contactMain.isFocusable = false
-                    root.setOnClickListener { actions.onContactTileClick(contact, root) }
-                    root.setOnLongClickListener {
-                        actions.onContactLongClick(contact)
+            return
+        }
+        with(holder as AppHolder) {
+            clearIcon()
+            appStyle.apply(appAppearance ?: AppSearchAppearance(), tileCount, labelGravity)
+            binding.itemTitle.alpha = 1f
+            binding.itemType.isVisible = true
+            binding.itemMenu.isVisible = item !is SearchItem.Permission
+            binding.root.setOnLongClickListener(null)
+            binding.root.isLongClickable = false
+            when (item) {
+                is SearchItem.App -> {
+                    binding.itemTitle.text = item.app.appLabel + if (item.app.isNew) " ✦" else ""
+                    binding.itemType.setText(
+                        if (item.app is AppModel.PinnedShortcut) R.string.search_type_shortcut else R.string.search_type_app,
+                    )
+                    loadIcon(item.app)
+                    binding.root.setOnClickListener { actions.onAppClick(item.app) }
+                    binding.root.setOnLongClickListener {
+                        actions.onAppLongClick(item.app)
                         true
                     }
-                } else {
-                    val selectableBackground = TypedValue()
-                    if (root.context.theme.resolveAttribute(
-                            android.R.attr.selectableItemBackground,
-                            selectableBackground,
-                            true,
-                        )
-                    ) {
-                        contactMain.setBackgroundResource(selectableBackground.resourceId)
-                    }
-                    contactMain.isClickable = true
-                    contactMain.setOnClickListener { actions.onContactClick(contact) }
-                    root.setOnClickListener(null)
-                    root.setOnLongClickListener(null)
-                    root.isClickable = false
-                    root.isLongClickable = false
                 }
-                contactCall.setOnClickListener { actions.onContactCall(contact) }
-                contactText.setOnClickListener { actions.onContactText(contact) }
-                contactWhatsApp.setOnClickListener { actions.onContactWhatsApp(contact) }
-                appAppearance?.applyResultSurface(root, contactName)
+                is SearchItem.ContactItem -> {
+                    binding.itemTitle.text = item.contact.name
+                    binding.itemType.setText(R.string.search_type_contact)
+                    setIcon(R.drawable.ic_person)
+                    binding.root.setOnClickListener {
+                        if (tileCount == 2) actions.onContactTileClick(item.contact, binding.root)
+                        else actions.onContactClick(item.contact)
+                    }
+                    binding.root.setOnLongClickListener {
+                        actions.onContactLongClick(item.contact)
+                        true
+                    }
+                }
+                is SearchItem.Engine -> {
+                    binding.itemTitle.text = item.engine.name
+                    binding.itemType.text = binding.root.context.getString(R.string.search_type_engine)
+                    setIcon(R.drawable.ic_search_web)
+                    binding.root.isActivated = item.matched
+                    binding.root.setOnClickListener { actions.onEngineClick(item.engine) }
+                }
+                is SearchItem.Permission -> {
+                    binding.itemTitle.text = item.label
+                    binding.itemType.isVisible = false
+                    setIcon(R.drawable.ic_person)
+                    binding.root.setOnClickListener { actions.onPermissionClick() }
+                }
+                is SearchItem.Header -> Unit
             }
-
-            is SearchItem.Engine -> (holder as EngineHolder).binding.apply {
-                engineName.text = item.engine.name
-                engineName.maxLines = if (tileCount == 2) 2 else 1
-                engineAlias.text = item.engine.alias
-                engineAlias.alpha = if (item.matched) 1f else 0.5f
-                root.setOnClickListener { actions.onEngineClick(item.engine) }
-                val sidePadding = ((if (tileCount == 2) 12 else 24) * root.resources.displayMetrics.density).toInt()
-                root.setPadding(sidePadding, 0, sidePadding, 0)
-                appAppearance?.applyResultSurface(root, engineName, engineAlias)
-            }
+            binding.itemMenu.contentDescription = binding.root.context.getString(
+                R.string.search_result_actions, binding.itemTitle.text,
+            )
+            binding.itemMenu.setOnClickListener { actions.onResultMenu(item, it) }
         }
     }
 
@@ -207,20 +153,33 @@ class SearchResultsAdapter(
         val appStyle by lazy { AppSearchTileStyle(binding) }
         var iconJob: Job? = null
 
+        fun setIcon(resource: Int) {
+            binding.itemIcon.isVisible = true
+            binding.itemIcon.setImageResource(resource)
+            binding.itemIcon.imageTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.WHITE)
+        }
+
         fun clearIcon() {
             iconJob?.cancel()
             iconJob = null
             binding.itemIcon.tag = null
+            binding.itemIcon.imageTintList = null
             binding.itemIcon.setImageDrawable(null)
             binding.itemIcon.isVisible = false
+            binding.root.isActivated = false
         }
 
         fun loadIcon(app: AppModel) {
             iconJob?.cancel()
-            val key = "${app.appPackage}|${app.user}"
+            val identity = when (app) {
+                is AppModel.App -> app.activityClassName
+                is AppModel.PinnedShortcut -> app.shortcutId
+                is AppModel.PrivateSpaceHeader -> ""
+            }
+            val key = "${app.appPackage}|${app.user}|$identity"
             binding.itemIcon.tag = key
             binding.itemIcon.isVisible = true
-            binding.itemIcon.setImageDrawable(null)
+            binding.itemIcon.setImageResource(R.drawable.ic_search_apps)
             val cached = iconCache.get(key)
             if (cached != null) {
                 binding.itemIcon.setImageDrawable(cached.newDrawable(binding.root.resources).mutate())
@@ -233,32 +192,41 @@ class SearchResultsAdapter(
                 if (iconState != null) iconCache.put(key, iconState)
                 withContext(Dispatchers.Main) {
                     if (bindingAdapterPosition != RecyclerView.NO_POSITION && binding.itemIcon.tag == key) {
-                        binding.itemIcon.setImageDrawable(iconState?.newDrawable(binding.root.resources)?.mutate())
-                        binding.itemIcon.isVisible = iconState != null
+                        if (iconState != null)
+                            binding.itemIcon.setImageDrawable(iconState.newDrawable(binding.root.resources).mutate())
                     }
                 }
             }
         }
     }
 
-    private fun loadIconState(context: Context, app: AppModel): Drawable.ConstantState? = try {
-        val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
-        val activities = launcherApps.getActivityList(app.appPackage, app.user)
-        val activity = activities.firstOrNull {
-            app is AppModel.App && it.componentName.className == app.activityClassName
-        } ?: activities.firstOrNull()
-        activity?.getBadgedIcon(context.resources.displayMetrics.densityDpi)?.constantState
-    } catch (_: Exception) {
-        null
+    private fun loadIconState(context: Context, app: AppModel): Drawable.ConstantState? {
+        return try {
+            val launcherApps = context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
+            if (app is AppModel.PinnedShortcut && launcherApps.hasShortcutHostPermission()) {
+                val query = LauncherApps.ShortcutQuery().apply {
+                    setPackage(app.appPackage)
+                    setShortcutIds(listOf(app.shortcutId))
+                    setQueryFlags(LauncherApps.ShortcutQuery.FLAG_MATCH_PINNED)
+                }
+                val shortcut = launcherApps.getShortcuts(query, app.user)?.firstOrNull()
+                val icon = shortcut?.let { launcherApps.getShortcutIconDrawable(it, context.resources.displayMetrics.densityDpi) }
+                if (icon?.constantState != null) return icon.constantState
+            }
+            val activities = launcherApps.getActivityList(app.appPackage, app.user)
+            val activity = activities.firstOrNull {
+                app is AppModel.App && it.componentName.className == app.activityClassName
+            } ?: activities.firstOrNull()
+            activity?.getBadgedIcon(context.resources.displayMetrics.densityDpi)?.constantState
+        } catch (error: SecurityException) {
+            android.util.Log.w("SearchResults", "Cannot read result icon for ${app.appPackage}", error)
+            null
+        }
     }
-    private class ContactHolder(val binding: ItemSearchContactBinding) : RecyclerView.ViewHolder(binding.root)
-    private class EngineHolder(val binding: ItemSearchEngineBinding) : RecyclerView.ViewHolder(binding.root)
 
     private companion object {
         const val TYPE_HEADER = 0
-        const val TYPE_APP = 1
-        const val TYPE_CONTACT = 2
-        const val TYPE_ENGINE = 3
+        const val TYPE_RESULT = 1
 
         val DIFF = object : DiffUtil.ItemCallback<SearchItem>() {
             override fun areItemsTheSame(oldItem: SearchItem, newItem: SearchItem) = when {

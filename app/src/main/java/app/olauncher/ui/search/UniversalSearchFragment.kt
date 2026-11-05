@@ -5,8 +5,13 @@ import android.content.ActivityNotFoundException
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
+import android.content.pm.LauncherApps
+import android.database.ContentObserver
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.UserHandle
 import android.provider.ContactsContract
 import android.text.Spannable
 import android.view.Gravity
@@ -18,12 +23,18 @@ import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.InputMethodManager
 import android.widget.TextView
 import android.widget.PopupWindow
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.graphics.Color
+import android.graphics.Rect
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.isVisible
+import androidx.core.view.updatePadding
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
@@ -48,7 +59,6 @@ import app.olauncher.databinding.FragmentUniversalSearchBinding
 import app.olauncher.databinding.PopupContactActionsBinding
 import app.olauncher.databinding.PopupSearchPageMenuBinding
 import app.olauncher.helper.AppSearchMatcher
-import app.olauncher.helper.getColorFromAttr
 import app.olauncher.helper.hideKeyboard
 import app.olauncher.helper.openAppInfo
 import app.olauncher.helper.showKeyboard
@@ -93,6 +103,21 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private var filterGeneration = 0L
     private var restoringCommandState = false
     private var displayedCommand: ContactCommand? = null
+    private var appsReady = false
+    private val contactsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) { viewModel.loadContacts() }
+    }
+    private val packagesObserver = object : LauncherApps.Callback() {
+        override fun onPackageAdded(packageName: String, user: UserHandle) { viewModel.getAppList() }
+        override fun onPackageRemoved(packageName: String, user: UserHandle) { viewModel.getAppList() }
+        override fun onPackageChanged(packageName: String, user: UserHandle) { viewModel.getAppList() }
+        override fun onPackagesAvailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
+            viewModel.getAppList()
+        }
+        override fun onPackagesUnavailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
+            viewModel.getAppList()
+        }
+    }
 
     private val popupBackCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
@@ -148,19 +173,38 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             text = when (mode) {
                 SearchMode.APPS_ONLY -> getString(R.string.apps)
                 SearchMode.CONTACTS_ONLY -> getString(R.string.contacts)
-                SearchMode.ENGINES_ONLY -> getString(R.string.search_engines)
-                SearchMode.ALL_SEARCH -> ""
+                SearchMode.ENGINES_ONLY -> getString(R.string.search_heading_engines)
+                SearchMode.ALL_SEARCH -> getString(R.string.search_anything)
             }
             gravity = prefs.appLabelAlignment
-            visibility = if (mode == SearchMode.ALL_SEARCH) View.GONE else View.VISIBLE
+            visibility = View.VISIBLE
         }
-        binding.search.queryHint = if (mode == SearchMode.ALL_SEARCH) " ___" else ""
+        val icon = when (mode) {
+            SearchMode.APPS_ONLY -> R.drawable.ic_search_apps
+            SearchMode.CONTACTS_ONLY -> R.drawable.ic_person
+            SearchMode.ENGINES_ONLY -> R.drawable.ic_search_web
+            SearchMode.ALL_SEARCH -> R.drawable.ic_search
+        }
+        binding.modeIcon.setImageResource(icon)
+        binding.emptyIcon.setImageResource(icon)
+        binding.emptyMessage.setText(when (mode) {
+            SearchMode.APPS_ONLY -> R.string.search_no_apps
+            SearchMode.CONTACTS_ONLY -> R.string.search_no_contacts
+            SearchMode.ENGINES_ONLY -> R.string.search_no_engines
+            SearchMode.ALL_SEARCH -> R.string.search_no_results
+        })
+        binding.resultsCount.text = resources.getQuantityString(R.plurals.search_result_count, 0, 0)
+        binding.search.queryHint = ""
         searchTextView = binding.search.findViewById(R.id.search_src_text)
         searchTextView?.apply {
             gravity = prefs.appLabelAlignment
             background = null
             backgroundTintList = null
             isCursorVisible = true
+            textSize = 18f
+            minimumWidth = 0
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q)
+                setTextCursorDrawable(R.drawable.search_cursor)
         }
         binding.search.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
@@ -200,19 +244,15 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             }
         })
 
-        val baseBottomMargin = (binding.recyclerView.layoutParams as ViewGroup.MarginLayoutParams).bottomMargin
-        ViewCompat.setOnApplyWindowInsetsListener(binding.recyclerView) { v, insets ->
+        val horizontalPadding = binding.searchRoot.paddingLeft
+        ViewCompat.setOnApplyWindowInsetsListener(binding.searchRoot) { v, insets ->
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
-            val nav = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).bottom
-            val bottomMargin = baseBottomMargin + max(max(ime, nav), cutout)
-            val params = v.layoutParams as ViewGroup.MarginLayoutParams
-            if (params.bottomMargin != bottomMargin) {
-                params.bottomMargin = bottomMargin
-                v.layoutParams = params
-            }
+            val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            v.updatePadding(left = horizontalPadding + safe.left, right = horizontalPadding + safe.right,
+                top = safe.top, bottom = max(ime, safe.bottom))
             insets
         }
+        ViewCompat.requestApplyInsets(binding.searchRoot)
     }
 
     private fun initObservers() {
@@ -224,6 +264,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             }
         if (mode.showsApps) {
             viewModel.appList.observe(viewLifecycleOwner) {
+                appsReady = it != null
                 apps = it.orEmpty().filter { app -> app !is AppModel.PrivateSpaceHeader && app.appPackage.isNotEmpty() }
                 rebuild()
             }
@@ -242,9 +283,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 rebuild()
             }
             viewModel.loadContacts()
-            if (mode == SearchMode.CONTACTS_ONLY) {
-                viewModel.contactsLoading.observe(viewLifecycleOwner) { rebuild() }
-            }
+            viewModel.contactsLoading.observe(viewLifecycleOwner) { rebuild() }
         }
     }
 
@@ -254,6 +293,12 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             return
         }
         val popupBinding = PopupSearchPageMenuBinding.inflate(layoutInflater)
+        popupBinding.searchPageAppearance.isVisible = mode != SearchMode.APPS_ONLY
+        popupBinding.searchPageAppearance.setOnClickListener {
+            activePopupWindow?.dismiss()
+            findNavController().navigate(R.id.searchAppearanceFragment,
+                Bundle().apply { putString(Constants.Key.SEARCH_MODE, mode.name) })
+        }
         updateTileCountControls(popupBinding)
         popupBinding.searchPageSettings.setOnClickListener {
             activePopupWindow?.dismiss()
@@ -277,9 +322,9 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             if (searchTileCount < 2) updateSearchTileCount(searchTileCount + 1, popupBinding)
         }
         val popup = createPopup(popupBinding.root, 256, R.drawable.bg_quick_panel)
-        prefs.appSearchAppearance(searchTileCount).applyMenu(popupBinding)
+        prefs.searchAppearance(mode, searchTileCount).applyMenu(popupBinding)
         popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
-        showPopup(popup, binding.searchPageMenu, popupBinding.root, Gravity.END)
+        showPopup(popup, binding.searchPageMenu, popupBinding.root)
     }
 
     private fun updateTileCountControls(binding: PopupSearchPageMenuBinding) {
@@ -305,7 +350,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         layoutManager.spanCount = newCount
         adapter.setTileCount(newCount)
         applyAppSearchAppearance()
-        prefs.appSearchAppearance(newCount).applyMenu(menuBinding)
+        prefs.searchAppearance(mode, newCount).applyMenu(menuBinding)
         adapter.notifyItemRangeChanged(0, adapter.itemCount)
         if (firstVisiblePosition != RecyclerView.NO_POSITION)
             layoutManager.scrollToPositionWithOffset(firstVisiblePosition, firstVisibleOffset)
@@ -313,10 +358,10 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     private fun applyAppSearchAppearance() {
-        val appearance = prefs.appSearchAppearance(searchTileCount)
+        val appearance = prefs.searchAppearance(mode, searchTileCount)
         appAppearance = appearance
         binding.searchRoot.setBackgroundColor(
-            appearance.background(requireContext().getColorFromAttr(R.attr.primaryShadeDarkColor))
+            appearance.background(Color.BLACK)
         )
         val foreground = android.graphics.Color.WHITE
         binding.modeTitle.setTextColor(foreground)
@@ -345,16 +390,24 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             popup.dismiss()
             onContactWhatsApp(contact)
         }
-        val xOffset = (anchor.width - popup.width) / 2
-        val yOffset = -((anchor.height + popup.height) / 2)
-        showPopup(popup, anchor, actions.root, Gravity.LEFT, yOffset, xOffset)
+        actions.root.background = searchTileSurface(requireContext(), appAppearance?.popupColor)
+        listOf(actions.contactCallAction, actions.contactTextAction, actions.contactWhatsAppAction).forEach {
+            it.imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            it.setBackgroundResource(R.drawable.bg_search_button)
+        }
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        showPopup(popup, anchor, actions.root)
     }
 
     private fun createPopup(content: View, widthDp: Int, background: Int, heightDp: Int? = null): PopupWindow {
         val density = resources.displayMetrics.density
         val maxWidth = (resources.displayMetrics.widthPixels - 24 * density).toInt().coerceAtLeast(1)
+        val scroll = ScrollView(requireContext()).apply {
+            isFillViewport = false
+            addView(content)
+        }
         return PopupWindow(
-            content,
+            scroll,
             minOf((widthDp * density).toInt(), maxWidth),
             heightDp?.let { (it * density).toInt() } ?: ViewGroup.LayoutParams.WRAP_CONTENT,
             true,
@@ -363,7 +416,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             isOutsideTouchable = true
             inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
             softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
-            elevation = 8 * density
+            elevation = 0f
             setOnDismissListener {
                 if (activePopupWindow === this) activePopupWindow = null
                 popupBackCallback.isEnabled = activePopupWindow?.isShowing == true
@@ -375,17 +428,29 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         popup: PopupWindow,
         anchor: View,
         content: View,
-        gravity: Int,
-        yOffset: Int = 0,
-        xOffset: Int = 0,
     ) {
         activePopupWindow?.dismiss()
         activePopupWindow = popup
         popupBackCallback.isEnabled = true
-        content.alpha = 0f
-        content.translationY = -8 * resources.displayMetrics.density
-        popup.showAsDropDown(anchor, xOffset, yOffset, gravity)
-        content.animate().alpha(1f).translationY(0f).setDuration(120).start()
+        val visible = Rect()
+        anchor.getWindowVisibleDisplayFrame(visible)
+        val location = IntArray(2)
+        anchor.getLocationOnScreen(location)
+        content.measure(
+            View.MeasureSpec.makeMeasureSpec(popup.width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(visible.height(), View.MeasureSpec.AT_MOST),
+        )
+        val bounds = searchPopupBounds(visible, location[0], location[1], anchor.width, anchor.height,
+            popup.width, if (popup.height > 0) popup.height else content.measuredHeight)
+        popup.width = bounds.width()
+        popup.height = bounds.height()
+        val windowOrigin = IntArray(2)
+        val screenOrigin = IntArray(2)
+        binding.root.getLocationInWindow(windowOrigin)
+        binding.root.getLocationOnScreen(screenOrigin)
+        popup.showAtLocation(binding.root, Gravity.TOP or Gravity.LEFT,
+            bounds.left - screenOrigin[0] + windowOrigin[0],
+            bounds.top - screenOrigin[1] + windowOrigin[1])
     }
 
     private fun currentQuery() = _binding?.search?.query?.toString().orEmpty()
@@ -394,6 +459,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         if (_binding == null || !::adapter.isInitialized) return
         if (mode == SearchMode.CONTACTS_ONLY && restoringCommandState) return
         val query = currentQuery()
+        binding.emptyState.isVisible = false
         val generation = ++filterGeneration
         if (mode == SearchMode.CONTACTS_ONLY) {
             commandJob?.cancel()
@@ -421,6 +487,11 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             }
             adapter.submitList(items) {
                 if (_binding == null || query != currentQuery() || generation != filterGeneration) return@submitList
+                val count = items.count { it is SearchItem.App || it is SearchItem.ContactItem || it is SearchItem.Engine }
+                binding.resultsCount.text = resources.getQuantityString(R.plurals.search_result_count, count, count)
+                val loading = (mode.showsContacts && viewModel.contactsLoading.value == true) ||
+                    (mode.showsApps && !appsReady)
+                binding.emptyState.isVisible = count == 0 && !loading && items.none { it is SearchItem.Permission }
                 if (mode == SearchMode.CONTACTS_ONLY) {
                     if (commandSubmitQuery == query) {
                         commandSubmitQuery = null
@@ -463,7 +534,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             ContactCommand.CONTACT -> R.string.contact_command_contact
             null -> R.string.contacts
         }
-        binding.modeTitle.setText(label)
+        binding.commandIndicator.setText(label)
+        binding.commandIndicator.isVisible = parsed != null
         val icon = when (parsed?.command) {
             ContactCommand.PHONE -> R.drawable.ic_call
             ContactCommand.MESSAGE -> R.drawable.ic_message
@@ -476,8 +548,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             setBounds(0, 0, size, size)
             setTint(android.graphics.Color.WHITE)
         }
-        binding.modeTitle.compoundDrawablePadding = (8 * resources.displayMetrics.density).toInt()
-        binding.modeTitle.setCompoundDrawablesRelative(drawable, null, null, null)
+        binding.commandIndicator.compoundDrawablePadding = (8 * resources.displayMetrics.density).toInt()
+        binding.commandIndicator.setCompoundDrawablesRelative(drawable, null, null, null)
     }
 
     private fun scheduleContactCommand(query: String, items: List<SearchItem>) {
@@ -647,6 +719,59 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         openAppInfo(requireContext(), app.user, app.appPackage)
     }
 
+    override fun onResultMenu(item: SearchItem, anchor: View) {
+        cancelAutomaticCommand()
+        val entries: List<Pair<Int, () -> Unit>> = when (item) {
+            is SearchItem.App -> listOf(R.string.search_app_info to { onAppLongClick(item.app) })
+            is SearchItem.ContactItem -> buildList {
+                if (!item.contact.number.isNullOrBlank()) {
+                    add(R.string.call to { onContactCall(item.contact) })
+                    add(R.string.text_message to { onContactText(item.contact) })
+                    add(R.string.whatsapp to { onContactWhatsApp(item.contact) })
+                }
+                add(R.string.search_contact_details to { openContactDetails(item.contact) })
+            }
+            is SearchItem.Engine -> listOf(
+                R.string.edit_search_engine to {
+                    findNavController().navigate(R.id.searchEnginesFragment,
+                        Bundle().apply { putString("edit_engine_id", item.engine.id) })
+                },
+                R.string.search_engine_settings to { findNavController().navigate(R.id.searchEnginesFragment) },
+            )
+            else -> return
+        }
+        val density = resources.displayMetrics.density
+        val menu = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding((8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt(), (8 * density).toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(appAppearance?.popupColor ?: Color.rgb(32, 32, 32))
+                cornerRadius = 16 * density
+                setStroke(density.toInt().coerceAtLeast(1), Color.rgb(54, 54, 54))
+            }
+        }
+        val popup = createPopup(menu, 256, R.drawable.bg_search_tile)
+        popup.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        entries.forEach { (label, action) ->
+            menu.addView(TextView(requireContext()).apply {
+                setText(label)
+                setTextColor(Color.WHITE)
+                textSize = 16f
+                gravity = Gravity.CENTER_VERTICAL
+                minHeight = (48 * density).toInt()
+                setPadding((16 * density).toInt(), (8 * density).toInt(), (16 * density).toInt(), (8 * density).toInt())
+                val color = if (appAppearance?.applyTileColorToMenu == true)
+                    appAppearance?.tileColor else appAppearance?.menuTileColor
+                background = searchTileSurface(context, color ?: appAppearance?.popupColor)
+                setOnClickListener {
+                    popup.dismiss()
+                    action()
+                }
+            }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        }
+        showPopup(popup, anchor, menu)
+    }
+
     override fun onContactClick(contact: Contact) {
         if (mode == SearchMode.CONTACTS_ONLY && ContactCommandQuery.parse(currentQuery()) != null) {
             executeContactCommand(contact)
@@ -722,6 +847,10 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
 
     override fun onStart() {
         super.onStart()
+        if (mode.showsApps)
+            requireContext().getSystemService(LauncherApps::class.java).registerCallback(packagesObserver)
+        if (mode.showsContacts)
+            requireContext().contentResolver.registerContentObserver(ContactsContract.Contacts.CONTENT_URI, true, contactsObserver)
         searchTextView?.showKeyboard() ?: binding.search.showKeyboard()
     }
 
@@ -744,6 +873,11 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     override fun onStop() {
+        if (mode.showsApps)
+            requireContext().getSystemService(LauncherApps::class.java).unregisterCallback(packagesObserver)
+        if (mode.showsContacts)
+            requireContext().contentResolver.unregisterContentObserver(contactsObserver)
+        activePopupWindow?.dismiss()
         binding.search.hideKeyboard()
         super.onStop()
     }

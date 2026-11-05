@@ -128,8 +128,7 @@ class ContactCommandIntegrationTest {
                     layout(fragment)
                     val recycler = fragment.requireView().findViewById<RecyclerView>(R.id.recyclerView)
                     val tile = recycler.getChildAt(0)
-                    val clickable = if (columns == 1) tile.findViewById<View>(R.id.contactMain) else tile
-                    clickable.performClick()
+                    tile.performClick()
                     awaitCommand { shadowOf(activity).peekNextStartedActivity() != null }
                     shadowOf(activity).nextStartedActivity
                     shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
@@ -152,7 +151,7 @@ class ContactCommandIntegrationTest {
                 val expected = (results(fragment).currentList[
                     recycler.getChildAdapterPosition(tile)
                 ] as SearchItem.ContactItem).contact.number
-                (if (columns == 1) tile.findViewById<View>(R.id.contactMain) else tile).performClick()
+                tile.performClick()
                 awaitCommand { shadowOf(activity).peekNextStartedActivity() != null }
                 assertEquals(expected, shadowOf(activity).nextStartedActivity.data?.schemeSpecificPart)
             }
@@ -290,7 +289,8 @@ class ContactCommandIntegrationTest {
             awaitCommand { results(fragment).currentList.none { it is SearchItem.ContactItem } }
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(1))
             assertNull(shadowOf(activity).peekNextStartedActivity())
-            assertEquals(View.GONE, fragment.requireView().findViewById<View>(R.id.modeTitle).visibility)
+            assertEquals("Search Anything", fragment.requireView().findViewById<TextView>(R.id.modeTitle).text.toString())
+            assertEquals(View.GONE, fragment.requireView().findViewById<View>(R.id.commandIndicator).visibility)
         }
     }
 
@@ -299,10 +299,12 @@ class ContactCommandIntegrationTest {
         withSearch(automatic = false) { _, fragment, provider ->
             val count = provider.queryCount
             query(fragment, "W ")
-            assertEquals("WhatsApp", fragment.requireView().findViewById<TextView>(R.id.modeTitle).text.toString())
+            assertEquals("WhatsApp", fragment.requireView().findViewById<TextView>(R.id.commandIndicator).text.toString())
+            assertEquals("Contacts", fragment.requireView().findViewById<TextView>(R.id.modeTitle).text.toString())
             query(fragment, "john")
             awaitCommand { results(fragment).itemCount == 1 }
             assertEquals("Contacts", fragment.requireView().findViewById<TextView>(R.id.modeTitle).text.toString())
+            assertEquals(View.GONE, fragment.requireView().findViewById<View>(R.id.commandIndicator).visibility)
             assertEquals(count, provider.queryCount)
             fragment.onContactClick((results(fragment).currentList.single() as SearchItem.ContactItem).contact)
         }

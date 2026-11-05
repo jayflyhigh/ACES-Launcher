@@ -16,6 +16,11 @@
             style="@style/AppSearchSettingLabel"
             android:text="@string/contact_search_settings" />
 
+        <TextView
+            android:id="@+id/pageAppearance"
+            style="@style/AppSearchColorButton"
+            android:text="@string/search_appearance" />
+
         <LinearLayout style="@style/AppSearchSettingsCard">
             <TextView
                 style="@style/AppSearchSettingLabel"

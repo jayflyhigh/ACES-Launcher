@@ -7,6 +7,7 @@
     android:orientation="vertical">
 
     <TextView
+        android:id="@+id/appearanceTitle"
         style="@style/TextSmallBold"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -15,32 +16,7 @@
         android:paddingEnd="16dp"
         android:paddingTop="8dp"
         android:paddingBottom="8dp"
-        android:text="@string/global_appearance" />
-
-    <RadioGroup
-        android:id="@+id/previewPage"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="?attr/primaryInverseColor"
-        android:orientation="horizontal">
-
-        <RadioButton
-            android:id="@+id/previewApps"
-            style="@style/GlobalPreviewPage"
-            android:text="@string/preview_apps" />
-        <RadioButton
-            android:id="@+id/previewContacts"
-            style="@style/GlobalPreviewPage"
-            android:text="@string/preview_contacts" />
-        <RadioButton
-            android:id="@+id/previewEngines"
-            style="@style/GlobalPreviewPage"
-            android:text="@string/preview_engines" />
-        <RadioButton
-            android:id="@+id/previewEverything"
-            style="@style/GlobalPreviewPage"
-            android:text="@string/preview_everything" />
-    </RadioGroup>
+        android:text="@string/search_appearance" />
 
     <FrameLayout
         android:id="@+id/preview"

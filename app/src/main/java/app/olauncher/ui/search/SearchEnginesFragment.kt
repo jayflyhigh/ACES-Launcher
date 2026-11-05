@@ -10,12 +10,15 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import app.olauncher.R
 import app.olauncher.data.SearchEngine
 import app.olauncher.data.SearchEngines
+import app.olauncher.data.Constants
+import app.olauncher.data.SearchMode
 import app.olauncher.databinding.DialogSearchEngineEditBinding
 import app.olauncher.databinding.FragmentSearchEnginesBinding
 import app.olauncher.databinding.ItemSearchEngineSettingBinding
@@ -56,6 +59,14 @@ class SearchEnginesFragment : BaseFragment() {
         }
 
         binding.addEngine.setOnClickListener { showEditDialog(null) }
+        binding.pageAppearance.setOnClickListener {
+            findNavController().navigate(R.id.searchAppearanceFragment,
+                Bundle().apply { putString(Constants.Key.SEARCH_MODE, SearchMode.ENGINES_ONLY.name) })
+        }
+        if (savedInstanceState == null) {
+            val editingId = arguments?.getString("edit_engine_id")
+            engines.firstOrNull { it.id == editingId }?.let { showEditDialog(it) }
+        }
     }
 
     private fun persist() = SearchEngines.save(requireContext(), engines)

@@ -1,24 +1,8 @@
 <!-- English fallback labels remain localizable as translations are added. -->
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
-    <string name="global_appearance">Global Appearance</string>
-    <string name="preview_apps">Apps</string>
-    <string name="preview_contacts">Contacts</string>
-    <string name="preview_engines">Engines</string>
-    <string name="preview_everything">All</string>
     <string name="preview_contact_one">Alex Morgan</string>
     <string name="preview_contact_two">Sam Taylor</string>
 
-    <style name="GlobalPreviewPage" parent="TextSmall">
-        <item name="android:layout_width">0dp</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_weight">1</item>
-        <item name="android:minHeight">48dp</item>
-        <item name="android:button">@null</item>
-        <item name="android:gravity">center</item>
-        <item name="android:background">@drawable/bg_global_preview_page</item>
-        <item name="android:foreground">?attr/selectableItemBackground</item>
-        <item name="android:textColor">@drawable/text_colors_default</item>
-    </style>
     <string name="app_search_choose_settings">Layout preview</string>
     <string name="app_search_tile_color">Result tile color</string>
     <string name="app_search_menu_tile_color">Use result tile color for menu tiles</string>
@@ -27,10 +11,10 @@
     <string name="app_search_independent_menu_color">Menu tile color</string>
     <string name="app_search_spacing">Space between tiles</string>
     <string name="app_search_colors_heading">Colors</string>
-    <string name="app_search_colors_hint">Shared by all search pages and both layouts. Tap a color to open the wheel. Text stays white.</string>
+    <string name="app_search_colors_hint">Applies only to this search page, in both layouts. Tap a color to open the wheel. Text stays white.</string>
     <string name="app_search_menu_heading">Three-line menu</string>
     <string name="app_search_layout_heading">Layout and padding</string>
-    <string name="app_search_layout_hint">Applies to all search pages, saved separately for each tile layout. Padding adds space around the results, not inside tiles.</string>
+    <string name="app_search_layout_hint">Applies only to this page, saved separately for each tile layout. Padding adds space around the results, not inside tiles.</string>
     <string name="app_search_choose_hint">Preview and edit a layout without changing your actual search layout.</string>
     <string name="app_search_color_wheel">Color wheel. Drag to choose hue and saturation. Arrow keys adjust the selection; hex input is also available.</string>
     <string name="app_search_brightness">Brightness</string>
@@ -43,7 +27,7 @@
     <string name="app_search_preview_menu">Preview popup menu</string>
     <string name="app_search_transparency_value">Transparency: %1$d%%</string>
     <string name="app_search_spacing_value">%1$d dp</string>
-    <string name="app_search_default_spacing">Default: 8 dp vertical, 10 dp horizontal</string>
+    <string name="app_search_default_spacing">Default: 8 dp vertical, 4 dp horizontal</string>
     <string name="app_search_hex">Hex color (#RRGGBB)</string>
     <string name="app_search_invalid_color">Enter six hexadecimal digits, for example #336699.</string>
     <string name="app_search_top">Top</string>

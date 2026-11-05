@@ -29,9 +29,8 @@ import app.olauncher.R
 import app.olauncher.data.AppSearchAppearance
 import app.olauncher.data.Prefs
 import app.olauncher.data.SearchMode
-import app.olauncher.databinding.FragmentGlobalAppearanceBinding
-import app.olauncher.databinding.ItemSearchContactBinding
-import app.olauncher.databinding.ItemSearchEngineBinding
+import app.olauncher.data.Constants
+import app.olauncher.databinding.FragmentSearchAppearanceBinding
 import app.olauncher.databinding.ItemSearchHeaderBinding
 import app.olauncher.data.SearchEngines
 import app.olauncher.databinding.ItemSearchAppBinding
@@ -42,8 +41,8 @@ import app.olauncher.ui.BaseFragment
 import java.util.Locale
 import kotlin.math.roundToInt
 
-class GlobalAppearanceFragment : BaseFragment() {
-    private var _binding: FragmentGlobalAppearanceBinding? = null
+open class SearchAppearanceFragment : BaseFragment() {
+    private var _binding: FragmentSearchAppearanceBinding? = null
     private val binding get() = _binding!!
     private lateinit var prefs: Prefs
     private lateinit var appearance: AppSearchAppearance
@@ -64,16 +63,16 @@ class GlobalAppearanceFragment : BaseFragment() {
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        _binding = FragmentGlobalAppearanceBinding.inflate(inflater, container, false)
+        _binding = FragmentSearchAppearanceBinding.inflate(inflater, container, false)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         prefs = Prefs(requireContext())
-        columns = savedInstanceState?.getInt(EDITING_COLUMNS) ?: prefs.searchTileCount(SearchMode.APPS_ONLY)
-        previewMode = savedInstanceState?.getString(PREVIEW_MODE)?.let(SearchMode::from) ?: SearchMode.APPS_ONLY
-        appearance = prefs.appSearchAppearance(columns)
+        previewMode = arguments?.getString(Constants.Key.SEARCH_MODE)?.let(SearchMode::from) ?: SearchMode.APPS_ONLY
+        columns = savedInstanceState?.getInt(EDITING_COLUMNS) ?: prefs.searchTileCount(previewMode)
+        appearance = prefs.searchAppearance(previewMode, columns)
         requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, previewBackCallback)
         previewAdapter = PreviewAdapter()
         binding.previewResults.apply {
@@ -138,20 +137,6 @@ class GlobalAppearanceFragment : BaseFragment() {
         binding.paddingTop.onUserProgress { update(appearance.copy(paddingTopDp = it)) }
         binding.paddingBottom.onUserProgress { update(appearance.copy(paddingBottomDp = it)) }
         binding.previewMenu.setOnClickListener { togglePreviewMenu() }
-        binding.previewPage.setOnCheckedChangeListener { _, checkedId ->
-            if (!updatingControls) {
-                previewMode = when (checkedId) {
-                    R.id.previewContacts -> SearchMode.CONTACTS_ONLY
-                    R.id.previewEngines -> SearchMode.ENGINES_ONLY
-                    R.id.previewEverything -> SearchMode.ALL_SEARCH
-                    else -> SearchMode.APPS_ONLY
-                }
-                previewPopup?.dismiss()
-                previewAdapter.notifyDataSetChanged()
-                binding.previewResults.scrollToPosition(0)
-                render()
-            }
-        }
         render()
         updatingControls = true
     }
@@ -171,7 +156,7 @@ class GlobalAppearanceFragment : BaseFragment() {
 
     private fun chooseLayout(count: Int) {
         columns = count
-        appearance = prefs.appSearchAppearance(columns)
+        appearance = prefs.searchAppearance(previewMode, columns)
         previewPopup?.dismiss()
         val manager = binding.previewResults.layoutManager as GridLayoutManager
         manager.spanCount = columns
@@ -181,32 +166,32 @@ class GlobalAppearanceFragment : BaseFragment() {
 
     private fun update(value: AppSearchAppearance) {
         appearance = value
-        prefs.setAppSearchAppearance(columns, value)
+        prefs.setSearchAppearance(previewMode, columns, value)
         render()
     }
 
     private fun render() {
         updatingControls = true
         val context = requireContext()
-        binding.previewPage.check(when (previewMode) {
-            SearchMode.APPS_ONLY -> R.id.previewApps
-            SearchMode.CONTACTS_ONLY -> R.id.previewContacts
-            SearchMode.ENGINES_ONLY -> R.id.previewEngines
-            SearchMode.ALL_SEARCH -> R.id.previewEverything
+        binding.appearanceTitle.text = getString(R.string.search_appearance) + " - " + getString(when (previewMode) {
+            SearchMode.APPS_ONLY -> R.string.apps
+            SearchMode.CONTACTS_ONLY -> R.string.contacts
+            SearchMode.ENGINES_ONLY -> R.string.search_heading_engines
+            SearchMode.ALL_SEARCH -> R.string.search_anything
         })
         binding.editingLayout.setText(if (columns == 1) R.string.one_tile_across else R.string.two_tiles_across)
         binding.decreaseLayout.isEnabled = columns == 2
         binding.increaseLayout.isEnabled = columns == 1
         binding.decreaseLayout.alpha = if (columns == 2) 1f else 0.45f
         binding.increaseLayout.alpha = if (columns == 1) 1f else 0.45f
-        tilePicker.setColor(appearance.tileColor ?: context.getColorFromAttr(R.attr.primaryInverseColor))
-        backgroundPicker.setColor(appearance.backgroundColor ?: context.getColorFromAttr(R.attr.primaryShadeDarkColor))
-        popupPicker.setColor(appearance.popupColor ?: context.getColorFromAttr(R.attr.primaryInverseColor))
-        menuTilePicker.setColor(appearance.menuTileColor ?: context.getColorFromAttr(R.attr.primaryShadeColor))
+        tilePicker.setColor(appearance.tileColor ?: Color.rgb(32, 32, 32))
+        backgroundPicker.setColor(appearance.backgroundColor ?: Color.BLACK)
+        popupPicker.setColor(appearance.popupColor ?: Color.rgb(32, 32, 32))
+        menuTilePicker.setColor(appearance.menuTileColor ?: Color.rgb(40, 40, 40))
         binding.applyColorToMenu.isChecked = appearance.applyTileColorToMenu
         binding.menuTileColor.isVisible = !appearance.applyTileColorToMenu
         if (appearance.applyTileColorToMenu) binding.menuTileColorPicker.root.isVisible = false
-        val background = appearance.background(context.getColorFromAttr(R.attr.primaryShadeDarkColor))
+        val background = appearance.background(Color.BLACK)
         val transparency = appearance.backgroundTransparency ?: (100 - Color.alpha(background) * 100 / 255f).roundToInt()
         binding.transparency.progress = transparency
         binding.transparencyValue.text = getString(R.string.app_search_transparency_value, transparency)
@@ -244,6 +229,7 @@ class GlobalAppearanceFragment : BaseFragment() {
             return
         }
         val menu = PopupSearchPageMenuBinding.inflate(layoutInflater)
+        menu.searchPageAppearance.isVisible = false
         val density = resources.displayMetrics.density
         val popup = PopupWindow(
             menu.root,
@@ -281,7 +267,6 @@ class GlobalAppearanceFragment : BaseFragment() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt(EDITING_COLUMNS, columns)
-        outState.putString(PREVIEW_MODE, previewMode.name)
         super.onSaveInstanceState(outState)
     }
 
@@ -315,8 +300,6 @@ class GlobalAppearanceFragment : BaseFragment() {
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder = when (viewType) {
-            1 -> ContactPreviewHolder(ItemSearchContactBinding.inflate(layoutInflater, parent, false))
-            2 -> EnginePreviewHolder(ItemSearchEngineBinding.inflate(layoutInflater, parent, false))
             3 -> HeaderPreviewHolder(ItemSearchHeaderBinding.inflate(layoutInflater, parent, false))
             else -> PreviewHolder(ItemSearchAppBinding.inflate(layoutInflater, parent, false))
         }
@@ -325,49 +308,39 @@ class GlobalAppearanceFragment : BaseFragment() {
             val index = if (previewMode == SearchMode.ALL_SEARCH) (position % 3 - 1).coerceAtLeast(0) else position
             when (holder) {
                 is PreviewHolder -> {
-                    val (label, icon) = samples[index]
-                    holder.bind(label, icon)
-                }
-                is ContactPreviewHolder -> with(holder.row) {
-                    contactName.setText(if (index == 0) R.string.preview_contact_one else R.string.preview_contact_two)
-                    contactIcon.isVisible = columns == 1
-                    contactCall.isVisible = columns == 1
-                    contactText.isVisible = columns == 1
-                    contactWhatsApp.isVisible = columns == 1
-                    contactMain.background = null
-                    contactName.gravity = if (columns == 2) Gravity.CENTER else prefs.appLabelAlignment
-                    contactName.maxLines = if (columns == 2) Int.MAX_VALUE else 1
-                    contactName.ellipsize = if (columns == 2) null else android.text.TextUtils.TruncateAt.END
-                    val sidePadding = ((if (columns == 2) 8 else 12) * resources.displayMetrics.density).roundToInt()
-                    contactName.setPadding(sidePadding, contactName.paddingTop, sidePadding, contactName.paddingBottom)
-                    appearance.applyResultSurface(root, contactName)
-                }
-                is EnginePreviewHolder -> with(holder.row) {
-                    engineName.text = engines.getOrNull(index)?.name ?: getString(R.string.search_engines)
-                    engineAlias.text = engines.getOrNull(index)?.alias.orEmpty()
-                    engineName.maxLines = if (columns == 2) 2 else 1
-                    val padding = ((if (columns == 2) 12 else 24) * resources.displayMetrics.density).roundToInt()
-                    root.setPadding(padding, 0, padding, 0)
-                    appearance.applyResultSurface(root, engineName, engineAlias)
+                    when (getItemViewType(position)) {
+                        1 -> holder.bind(
+                            getString(if (index == 0) R.string.preview_contact_one else R.string.preview_contact_two),
+                            requireNotNull(ContextCompat.getDrawable(context, R.drawable.ic_person)),
+                            R.string.search_type_contact,
+                        )
+                        2 -> holder.bind(
+                            engines.getOrNull(index)?.name ?: getString(R.string.search_engines),
+                            requireNotNull(ContextCompat.getDrawable(context, R.drawable.ic_search_web)),
+                            R.string.search_type_engine,
+                        )
+                        else -> {
+                            val (label, icon) = samples[index]
+                            holder.bind(label, icon, R.string.search_type_app)
+                        }
+                    }
                 }
                 is HeaderPreviewHolder -> with(holder.row) {
                     headerTitle.setText(listOf(R.string.apps, R.string.contacts, R.string.search)[position / 3])
                     headerTitle.gravity = prefs.appLabelAlignment
-                    appearance.applyResultSurface(root, headerTitle)
                 }
             }
         }
     }
 
-    private class ContactPreviewHolder(val row: ItemSearchContactBinding) : RecyclerView.ViewHolder(row.root)
-    private class EnginePreviewHolder(val row: ItemSearchEngineBinding) : RecyclerView.ViewHolder(row.root)
     private class HeaderPreviewHolder(val row: ItemSearchHeaderBinding) : RecyclerView.ViewHolder(row.root)
 
     private inner class PreviewHolder(private val row: ItemSearchAppBinding) : RecyclerView.ViewHolder(row.root) {
         private val style = AppSearchTileStyle(row)
 
-        fun bind(label: String, icon: Drawable) {
+        fun bind(label: String, icon: Drawable, type: Int) {
             row.itemTitle.text = label
+            row.itemType.setText(type)
             row.itemIcon.setImageDrawable(icon)
             style.apply(appearance, columns, prefs.appLabelAlignment)
         }
@@ -375,7 +348,6 @@ class GlobalAppearanceFragment : BaseFragment() {
 
     private companion object {
         const val EDITING_COLUMNS = "editing_app_search_columns"
-        const val PREVIEW_MODE = "global_appearance_preview_mode"
     }
 }
 

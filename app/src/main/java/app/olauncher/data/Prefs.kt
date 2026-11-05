@@ -243,6 +243,34 @@ class Prefs(context: Context) {
                 if (value == null) remove(key) else putInt(key, value)
             }
         }
+
+    }
+
+    fun searchAppearance(mode: SearchMode, columns: Int): AppSearchAppearance {
+        val prefix = "SEARCH_PAGE_${mode.name}_"
+        if (!prefs.contains(prefix + "APP_SEARCH_APPEARANCE_COLORS_SAVED"))
+            return appSearchAppearance(columns)
+        return AppSearchAppearance.load(columns) { key ->
+            if (prefs.contains(prefix + key)) prefs.getInt(prefix + key, 0) else null
+        }
+    }
+
+    fun setSearchAppearance(mode: SearchMode, columns: Int, appearance: AppSearchAppearance) {
+        val prefix = "SEARCH_PAGE_${mode.name}_"
+        val layouts = (1..2).associateWith { searchAppearance(mode, it) }
+        prefs.edit {
+            // Snapshot both legacy layouts before making this page independent.
+            if (!prefs.contains(prefix + "APP_SEARCH_APPEARANCE_COLORS_SAVED")) {
+                layouts.forEach { (count, value) ->
+                    value.save(count) { key, setting ->
+                        if (setting == null) remove(prefix + key) else putInt(prefix + key, setting)
+                    }
+                }
+            }
+            appearance.save(columns) { key, value ->
+                if (value == null) remove(prefix + key) else putInt(prefix + key, value)
+            }
+        }
     }
 
     var swipeLeftEnabled: Boolean

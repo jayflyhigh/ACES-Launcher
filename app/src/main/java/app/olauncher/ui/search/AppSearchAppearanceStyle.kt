@@ -17,7 +17,7 @@ import app.olauncher.R
 import app.olauncher.data.AppSearchAppearance
 import app.olauncher.databinding.ItemSearchAppBinding
 import app.olauncher.databinding.PopupSearchPageMenuBinding
-import app.olauncher.helper.getColorFromAttr
+import app.olauncher.helper.isSystemAnimationsDisabled
 import kotlin.math.roundToInt
 
 internal fun Context.appSearchSurface(resource: Int, color: Int? = null): Drawable {
@@ -40,16 +40,17 @@ internal fun contrastColor(background: Int): Int =
     ) Color.WHITE else Color.BLACK
 
 internal fun AppSearchAppearance.applyMenu(binding: PopupSearchPageMenuBinding): Drawable {
-    val context = binding.root.context
     // Keep the window's existing drawable in sync while its popup is already open.
     val panel = (binding.root.background as GradientDrawable).mutate() as GradientDrawable
-    panel.setColor(popupColor ?: context.getColorFromAttr(R.attr.primaryColorInverseTrans90))
+    panel.setColor(popupColor ?: Color.rgb(32, 32, 32))
     val tileColor = if (applyTileColorToMenu)
-        tileColor ?: context.getColorFromAttr(R.attr.primaryInverseColor) else menuTileColor
-    binding.searchPageSettings.background = context.appSearchSurface(R.drawable.bg_quick_bar, tileColor)
+        tileColor ?: Color.rgb(32, 32, 32) else menuTileColor ?: Color.rgb(40, 40, 40)
+    binding.searchPageSettings.background = searchTileSurface(binding.root.context, tileColor)
+    binding.searchPageAppearance.background = searchTileSurface(binding.root.context, tileColor)
     val tileCountRow = binding.decreaseTileCount.parent as View
-    tileCountRow.background = context.appSearchSurface(R.drawable.bg_quick_bar, tileColor)
+    tileCountRow.background = searchTileSurface(binding.root.context, tileColor)
     binding.searchPageSettings.setTextColor(Color.WHITE)
+    binding.searchPageAppearance.setTextColor(Color.WHITE)
     binding.tileCount.setTextColor(Color.WHITE)
     binding.decreaseTileCount.imageTintList = ColorStateList.valueOf(Color.WHITE)
     binding.increaseTileCount.imageTintList = ColorStateList.valueOf(Color.WHITE)
@@ -58,10 +59,6 @@ internal fun AppSearchAppearance.applyMenu(binding: PopupSearchPageMenuBinding):
 
 /** Shared by the real app results and the two non-launching preview rows. */
 internal class AppSearchTileStyle(private val binding: ItemSearchAppBinding) {
-    private val defaultShadowColor = binding.itemTitle.shadowColor
-    private val defaultShadowRadius = binding.itemTitle.shadowRadius
-    private val defaultShadowDx = binding.itemTitle.shadowDx
-    private val defaultShadowDy = binding.itemTitle.shadowDy
     private var appliedAppearance: AppSearchAppearance? = null
     private var appliedColumns = 0
     private var appliedLabelGravity = 0
@@ -74,32 +71,46 @@ internal class AppSearchTileStyle(private val binding: ItemSearchAppBinding) {
         appliedColumns = columns
         appliedLabelGravity = labelGravity
         val density = root.resources.displayMetrics.density
-        val padding = ((if (columns == 2) 12 else 24) * density).roundToInt()
-        root.setPadding(padding, 0, padding, 0)
+        val padding = ((if (columns == 2) 8 else 20) * density).roundToInt()
+        root.setPadding(padding, (8 * density).roundToInt(), 0, (8 * density).roundToInt())
         itemIcon.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-            marginEnd = ((if (columns == 2) 8 else 16) * density).roundToInt()
+            marginEnd = ((if (columns == 2) 8 else 20) * density).roundToInt()
+            width = ((if (columns == 2) 28 else 44) * density).roundToInt()
+            height = width
         }
+        itemTitle.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, if (columns == 2) 14f else 18f)
         itemTitle.maxLines = if (columns == 2) 2 else 1
-        root.background = root.context.appSearchSurface(R.drawable.bg_search_result, appearance.tileColor)
+        root.background = searchTileSurface(root.context, appearance.tileColor)
         itemTitle.setTextColor(Color.WHITE)
-        itemTitle.setShadowLayer(defaultShadowRadius, defaultShadowDx, defaultShadowDy, defaultShadowColor)
         itemTitle.gravity = labelGravity
+        itemType.gravity = labelGravity
         appearance.applyResultSpacing(root)
     }
 }
 
-internal fun AppSearchAppearance.applyResultSurface(view: View, vararg labels: TextView) {
-    view.background = view.context.appSearchSurface(R.drawable.bg_search_result, tileColor)
-    labels.forEach { it.setTextColor(Color.WHITE) }
-    applyResultSpacing(view)
+internal fun searchTileSurface(context: Context, color: Int? = null): Drawable {
+    val base = color ?: Color.rgb(32, 32, 32)
+    fun shape(fill: Int) = GradientDrawable().apply {
+        setColor(fill)
+        cornerRadius = 16 * context.resources.displayMetrics.density
+        setStroke((context.resources.displayMetrics.density).roundToInt().coerceAtLeast(1), Color.rgb(54, 54, 54))
+    }
+    return android.graphics.drawable.StateListDrawable().apply {
+        addState(intArrayOf(android.R.attr.state_pressed), shape(ColorUtils.blendARGB(base, Color.WHITE, 0.07f)))
+        addState(intArrayOf(android.R.attr.state_focused), shape(ColorUtils.blendARGB(base, Color.WHITE, 0.07f)))
+        addState(intArrayOf(), shape(base))
+        val duration = if (context.isSystemAnimationsDisabled()) 0 else 80
+        setEnterFadeDuration(duration)
+        setExitFadeDuration(duration)
+    }
 }
 
 private fun AppSearchAppearance.applyResultSpacing(view: View) {
     val density = view.resources.displayMetrics.density
     val gap = spacingDp?.let { (it * density).roundToInt() }
     view.updateLayoutParams<ViewGroup.MarginLayoutParams> {
-        leftMargin = gap?.div(2) ?: (5 * density).roundToInt()
-        rightMargin = gap?.let { it - it / 2 } ?: (5 * density).roundToInt()
+        leftMargin = gap?.div(2) ?: (2 * density).roundToInt()
+        rightMargin = gap?.let { it - it / 2 } ?: (2 * density).roundToInt()
         topMargin = gap?.div(2) ?: (4 * density).roundToInt()
         bottomMargin = gap?.let { it - it / 2 } ?: (4 * density).roundToInt()
     }

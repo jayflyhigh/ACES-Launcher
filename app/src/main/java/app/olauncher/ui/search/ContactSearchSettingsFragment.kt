@@ -7,8 +7,11 @@ import android.view.ViewGroup
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.navigation.fragment.findNavController
 import app.olauncher.R
 import app.olauncher.data.Prefs
+import app.olauncher.data.Constants
+import app.olauncher.data.SearchMode
 import app.olauncher.databinding.FragmentContactSearchSettingsBinding
 import app.olauncher.helper.OlDialog
 import app.olauncher.helper.createDialog
@@ -26,6 +29,10 @@ class ContactSearchSettingsFragment : BaseFragment() {
         val binding = FragmentContactSearchSettingsBinding.bind(view)
         val prefs = Prefs(requireContext())
         val settings = prefs.contactCommandSettings()
+        binding.pageAppearance.setOnClickListener {
+            findNavController().navigate(R.id.searchAppearanceFragment,
+                Bundle().apply { putString(Constants.Key.SEARCH_MODE, SearchMode.CONTACTS_ONLY.name) })
+        }
         binding.automaticCommands.isChecked = settings.automatic
         binding.rememberNumbers.isChecked = settings.rememberNumbers
         binding.showCommandIndicator.isChecked = settings.showIndicator

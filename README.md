@@ -24,41 +24,36 @@ Please check out the **[About](https://tanujnotes.substack.com/p/olauncher-minim
 
 License: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
 
-### ACES Global Appearance
+### ACES search pages and appearance
 
-Open **ACES → Global Appearance** (the last ACES option) to customize all four
-search pages. **A - App search settings** is an empty placeholder for future settings.
-The selector above the fixed live preview switches between Apps, Contacts, Engines,
-and All without changing the actual search page or its tile count. Samples use the
-existing app, contact, engine, and category layouts without launching actions.
-The preview includes a button to preview the existing
-three-line menu. Settings are grouped into Layout Preview, Colors, Three-Line Menu,
-and Layout and Padding. Expand a color control to use the hue/saturation wheel,
-brightness slider, or enter `#RRGGBB`. Color swatches show the current selection.
-Result and menu text stays white regardless of the chosen background.
+Apps, Contacts, Search Engines, and Search Anything use a black page with a
+pill-shaped search field, a fixed icon/title/results heading, and rounded charcoal
+result tiles. Each result has a type label and a separate three-dot action menu.
+Menus open above or below the selected tile within the visible area and scroll
+when necessary. Contacts retain normal details taps, two-column quick actions,
+long-press details, and command handling. Search engine aliases and ordering are
+unchanged; engine menus link to the existing editor and management screen.
 
-**Choose Settings** selects which layout to edit; it does not change the actual
-search layout. Tile colors, menu-tile color opt-in, page background and transparency,
-and popup background are shared by both layouts. When menu tiles do not use the
-result tile color, a separate Menu Tile Color control is available and saved.
-Left, right, top, and bottom results-area padding and spacing remain
-independently saved for each layout. Existing colors use the previously saved
-one-column value, falling back to the two-column value when unset.
-The controls have an opaque background; the live preview sits directly above the
-window wallpaper so increasing transparency reveals the current launcher background,
-including live wallpaper, without needing wallpaper access permissions.
-The popup preview stays open while editing colors and closes with
-its preview button or Back. The existing **Number of Tiles** menu selects the active
-search layout and its saved appearance. Unchanged settings retain themed defaults.
-Padding affects only the results area, not the search bar or tile interiors, and
-is limited on small screens to keep results usable. Alignment controls have been
-removed. Results remain scrollable. All appearance controls apply to Apps, Contacts,
-Engines, and Search Everything. Existing saved colors and layout values are retained.
+The three-line menu remains available at the right of the search field, with
+page settings and the saved one/two-column selector. App Search Settings now
+contains its appearance controls. Contacts and Search Engines settings have a
+**Page appearance** entry; Search Anything settings opens its own appearance editor.
+Appearance is also accessible directly from those pages' three-line menus.
+There is no Global Appearance entry or global editor.
 
-The Android-resource unit tests include opening Global Appearance, switching all
-four preview pages and both tile layouts, restoring the screen, and checking the
-empty App Search Settings placeholder on Android API 24 and 28.
-Run them with `./gradlew :app:testDebugUnitTest`.
+Each page independently saves its colors, transparency, popup/menu colors,
+spacing, and results padding. Color controls retain the wheel, brightness slider,
+hex input, and live preview. Colors apply to both column layouts within that page;
+spacing and padding are saved separately for each layout. Editing the preview's
+layout does not change the actual result column count. Existing saved appearance
+values are retained as defaults until a page is customized; edits then affect only
+that page. New installations default to the redesigned black/charcoal palette.
+Existing text alignment and launcher font scaling preferences are preserved.
+
+Android-resource tests cover all four pages in both layouts, fixed headings,
+keyboard insets, dynamic counts and empty states, result menus, popup bounds,
+appearance persistence/migration, and command regressions on API 24 and 28.
+Run `./gradlew :app:testDebugUnitTest`; build with `./gradlew :app:assembleDebug`.
 
 App-drawer regression tests also cover asynchronous list updates, hiding apps,
 recycled rename controls, and normalized filtering on Android API 24 and 28.
@@ -74,7 +69,7 @@ Only **C — Contact Search** recognizes `p name` (dialer), `m name` (SMS),
 `w name` (WhatsApp conversation), and `c name` (contact details). Commands are
 case-insensitive and require a space after the letter. Normal searching, tile
 layouts, long-press details, and existing shortcut buttons are unchanged.
-The existing Contacts title shows a compact command icon and name when enabled.
+The Contacts heading shows a compact command indicator beneath its title when enabled.
 
 Type at least two name characters and a unique match opens after 250 ms by
 default. Further typing, ambiguous results, loading contacts, composing text,

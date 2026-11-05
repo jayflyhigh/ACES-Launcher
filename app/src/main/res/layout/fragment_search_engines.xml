@@ -54,10 +54,16 @@
             android:alpha="0.6"
             android:text="@string/search_engines_hint" />
 
+        <TextView
+            android:id="@+id/pageAppearance"
+            style="@style/AppSearchColorButton"
+            android:text="@string/search_appearance" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/enginesList"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
             android:clipToPadding="false" />
     </LinearLayout>
 </LinearLayout>

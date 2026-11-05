@@ -1,0 +1,42 @@
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <color name="search_surface">#202020</color>
+    <color name="search_outline">#363636</color>
+    <color name="search_secondary">#B3B3B3</color>
+    <string name="search_anything">Search Anything</string>
+    <string name="search_heading_engines">Search Engines</string>
+    <string name="search_appearance">Page appearance</string>
+    <string name="search_result_actions">Actions for %1$s</string>
+    <string name="search_type_app">App</string>
+    <string name="search_type_contact">Contact</string>
+    <string name="search_type_engine">Search Engine</string>
+    <string name="search_type_shortcut">Shortcut</string>
+    <dimen name="search_top_space">64dp</dimen>
+    <string name="search_no_apps">No apps found</string>
+    <string name="search_no_contacts">No contacts found</string>
+    <string name="search_no_engines">No search engines found</string>
+    <string name="search_no_results">No results found</string>
+    <string name="search_contact_details">Contact details</string>
+    <string name="search_app_info">App info</string>
+    <plurals name="search_result_count">
+        <item quantity="one">%d result</item>
+        <item quantity="other">%d results</item>
+    </plurals>
+    <style name="SearchTileTitle" parent="">
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="SearchFieldTheme" parent="ThemeOverlay.AppCompat.Dark">
+        <item name="android:colorAccent">#FFFFFF</item>
+        <item name="colorControlActivated">#FFFFFF</item>
+        <item name="autoCompleteTextViewStyle">@style/SearchFieldInput</item>
+    </style>
+    <style name="SearchFieldInput" parent="Widget.AppCompat.AutoCompleteTextView">
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textCursorDrawable">@drawable/search_cursor</item>
+        <item name="android:cursorVisible">true</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:inputType">textCapSentences|textNoSuggestions</item>
+    </style>
+</resources>
