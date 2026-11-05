@@ -613,7 +613,7 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private fun appCommandIcon(command: AppCommand): Int = when (command) {
         AppCommand.RENAME -> R.drawable.ic_rename
         AppCommand.INFO -> R.drawable.ic_info
-        AppCommand.PLAY_STORE -> R.drawable.ic_search_web
+        AppCommand.PLAY_STORE -> R.drawable.ic_play_store
         AppCommand.UNINSTALL -> R.drawable.ic_delete
     }
 
