@@ -240,4 +240,8 @@
     <!-- Widgets -->
     <string name="widgets">Widgets</string>
     <string name="done">Done</string>
+    <string name="search_type_group_chat">Group Chat</string>
+    <string name="allow_messages_access">Allow SMS access for group chats</string>
+    <string name="messages_permission_denied">SMS access was not granted. Contacts are still available.</string>
+    <string name="group_chats_unavailable">Unable to read SMS/MMS group chats on this device.</string>
 </resources>

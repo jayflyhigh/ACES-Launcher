@@ -22,6 +22,7 @@ import app.olauncher.databinding.LayoutQuickActionsBinding
 import app.olauncher.helper.dpToPx
 import app.olauncher.helper.isEinkDisplay
 import app.olauncher.helper.isSystemAnimationsDisabled
+import app.olauncher.helper.showToast
 import app.olauncher.ui.HomeFragment
 import kotlin.math.max
 
@@ -313,6 +314,17 @@ class QuickActionsMenu(
             navigate(R.id.action_mainFragment_to_settingsFragment)
             viewModel.firstOpen(false)
         }
+        binding.homeSettings.setOnLongClickListener {
+            hide(false)
+            try {
+                fragment.startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS))
+            } catch (_: android.content.ActivityNotFoundException) {
+                context.showToast(R.string.unable_to_open_app)
+            } catch (_: SecurityException) {
+                context.showToast(R.string.unable_to_open_app)
+            }
+            true
+        }
     }
 
     private fun navigate(actionId: Int, args: android.os.Bundle? = null) {
@@ -325,7 +337,6 @@ class QuickActionsMenu(
     }
 
     private fun openSearch(mode: SearchMode) {
-        if (mode.showsContacts) viewModel.loadContacts()
         navigate(R.id.action_mainFragment_to_universalSearchFragment, bundleOf(Constants.Key.SEARCH_MODE to mode.name))
     }
 

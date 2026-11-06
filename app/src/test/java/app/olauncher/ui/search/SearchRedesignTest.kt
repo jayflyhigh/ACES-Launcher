@@ -116,7 +116,7 @@ class SearchRedesignTest {
                 val adapter = list.adapter as SearchResultsAdapter
                 for ((position, item) in adapter.currentList.withIndex()) {
                     val row = list.findViewHolderForAdapterPosition(position)?.itemView ?: continue
-                    if (item is SearchItem.Header) continue
+                    if (item is SearchItem.Header || item is SearchItem.Permission) continue
                     assertEquals(
                         if (item is SearchItem.ContactItem || (item is SearchItem.App && mode == SearchMode.APPS_ONLY) ||
                             (item is SearchItem.Engine && mode == SearchMode.ENGINES_ONLY)

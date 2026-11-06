@@ -22,6 +22,8 @@ import app.olauncher.data.AppModel
 import app.olauncher.data.Constants
 import app.olauncher.data.Contact
 import app.olauncher.data.ContactsLoader
+import app.olauncher.data.GroupChat
+import app.olauncher.data.GroupChatsLoader
 import app.olauncher.data.Prefs
 import app.olauncher.helper.SingleLiveEvent
 import app.olauncher.helper.WallpaperWorker
@@ -36,7 +38,9 @@ import app.olauncher.helper.isPrivateSpaceLocked
 import app.olauncher.helper.showToast
 import app.olauncher.helper.usageStats.EventLogWrapper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Calendar
@@ -61,6 +65,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var appListJob: Job? = null
     private var appListRequest = 0L
     private var lastAppListLoadedAt = 0L
+    private var appListInvalidated = true
+    private var privateSpaceJob: Job? = null
 
     val privateSpaceApps = MutableLiveData<List<AppModel>?>()
     val privateSpaceLocked = MutableLiveData<Boolean>()
@@ -69,6 +75,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val contacts = MutableLiveData<List<Contact>>()
     val contactsLoading = MutableLiveData(false)
     private var contactsJob: Job? = null
+    private var contactsReloadPending = false
+    val groupChats = MutableLiveData<List<GroupChat>>(emptyList())
+    val groupChatsLoading = MutableLiveData(false)
+    private var groupChatsJob: Job? = null
+    private var groupChatsRequest = 0L
+
+    fun loadGroupChats() {
+        val request = ++groupChatsRequest
+        groupChatsJob?.cancel()
+        if (!GroupChatsLoader.hasPermission(appContext)) {
+            groupChats.value = emptyList()
+            groupChatsLoading.value = false
+            return
+        }
+        groupChatsJob = viewModelScope.launch {
+            groupChatsLoading.value = true
+            val contactSnapshot = contacts.value.orEmpty()
+            try {
+                groupChats.value = withContext(Dispatchers.IO) {
+                    GroupChatsLoader.load(appContext, contactSnapshot)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: RuntimeException) {
+                android.util.Log.w("GroupChats", "Unable to load SMS/MMS group conversations", e)
+                groupChats.value = emptyList()
+                appContext.showToast(R.string.group_chats_unavailable)
+            } finally {
+                if (request == groupChatsRequest) groupChatsLoading.value = false
+            }
+        }
+    }
 
     // Suppress backToHomeScreen during Private Space lock/unlock auth
     var isPrivateSpaceToggling = false
@@ -121,13 +159,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             contactsJob?.cancel()
             contactsLoading.value = false
             contacts.value = emptyList()
+            loadGroupChats()
             return
         }
-        if (contactsJob?.isActive == true) return
+        if (contactsJob?.isActive == true) {
+            contactsReloadPending = true
+            return
+        }
         contactsLoading.value = true
         contactsJob = viewModelScope.launch {
             try {
-                contacts.value = withContext(Dispatchers.IO) { ContactsLoader.load(appContext) }
+                do {
+                    contactsReloadPending = false
+                    contacts.value = withContext(Dispatchers.IO) { ContactsLoader.load(appContext) }
+                } while (contactsReloadPending)
+                loadGroupChats()
             } finally {
                 contactsLoading.value = false
             }
@@ -443,17 +489,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val request = ++appListRequest
         appListJob?.cancel()
         appListJob = viewModelScope.launch {
+            delay(100)
             val apps = getAppsList(appContext, prefs, includeRegularApps = true, includeHiddenApps)
             if (request != appListRequest) return@launch
             if (appList.value != apps) appList.value = apps
             lastAppListLoadedAt = SystemClock.elapsedRealtime()
+            appListInvalidated = false
+            getPrivateSpaceAppList()
         }
-        getPrivateSpaceAppList()
+    }
+
+    fun invalidateAppList(refreshNow: Boolean) {
+        appListInvalidated = true
+        if (refreshNow) getAppList()
+        else {
+            ++appListRequest
+            appListJob?.cancel()
+        }
     }
 
     fun getAppListIfStale(maxAgeMillis: Long = APP_LIST_CACHE_MILLIS) {
+        if (appListJob?.isActive == true) return
         val age = SystemClock.elapsedRealtime() - lastAppListLoadedAt
-        if (appList.value == null || age >= maxAgeMillis) getAppList()
+        if (appListInvalidated || appList.value == null || age >= maxAgeMillis) getAppList()
         else getPrivateSpaceAppList()
     }
 
@@ -525,7 +583,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun getPrivateSpaceAppList() {
-        viewModelScope.launch {
+        privateSpaceJob?.cancel()
+        privateSpaceJob = viewModelScope.launch {
+            delay(100)
             val handle = getPrivateSpaceUserHandle(appContext)
             privateSpaceAvailable.value = handle != null
             if (handle != null) {

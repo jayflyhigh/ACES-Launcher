@@ -98,6 +98,37 @@ phone selection and invalidation, merged/deleted contacts, permission and app
 failures, persistent settings, cancellation, and recreation on Android API 24/28.
 Run `./gradlew :app:testDebugUnitTest`.
 
+Long-press **Home Settings** in the home quick-actions panel to open Android
+system settings. A normal tap still opens launcher settings. In the Contact Search
+popup, long-press **P**, **M**, **W**, or **C** to open the phone, default messaging,
+WhatsApp, or contacts app without selecting a contact. Normal taps still insert
+the corresponding search command.
+
+### SMS/MMS group chats
+
+The empty contact-search page offers **Allow SMS access for group chats**.
+This permission is optional; declining it does not affect contact search.
+SMS/MMS groups appear alongside contacts, with a group icon, a **Group Chat**
+label, and no contact shortcut buttons or command actions. Names are built from
+available contact names and participant addresses. Tapping opens the conversation
+in the default messaging app (or a group composer if that app does not support
+thread links). Group chats are also included in Search Anything.
+
+Only SMS/MMS conversations exposed by Android's messaging provider are supported,
+not private RCS, WhatsApp, or other app databases. Android or the installer may
+restrict SMS permission; this launcher does not request the default-SMS role.
+Message bodies are not read, stored, or sent anywhere.
+
+### Battery-conscious updates
+
+Search uses event-driven observers only while its page is visible, coalesces
+contact/message change notifications, and loads database metadata off the UI
+thread rather than per keystroke. App/package refresh bursts are coalesced and
+deferred while the launcher is in the background; Contact Search reuses the
+activity's package observer instead of performing duplicate scans. Existing
+clock, battery, wallpaper, and search behavior remains enabled. Actual battery
+savings depend on the device and require on-device measurement.
+
 ##
 
 ### Other apps from team Olauncher:

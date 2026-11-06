@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.Telephony
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -44,6 +45,26 @@ internal class ContactCommandExecutor(
         job = null
         dialog?.dismiss()
         dialog = null
+    }
+
+    fun openApp(command: ContactCommand) {
+        cancel()
+        val opened = when (command) {
+            ContactCommand.PHONE -> start(Intent(Intent.ACTION_DIAL))
+            ContactCommand.MESSAGE -> {
+                val packageName = Telephony.Sms.getDefaultSmsPackage(context)
+                val intent = packageName?.let(context.packageManager::getLaunchIntentForPackage)
+                (intent != null && start(intent)) ||
+                    start(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_MESSAGING))
+            }
+            ContactCommand.WHATSAPP -> listOf("com.whatsapp", "com.whatsapp.w4b").any { packageName ->
+                context.packageManager.getLaunchIntentForPackage(packageName)?.let(::start) == true
+            }
+            ContactCommand.CONTACT -> start(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CONTACTS))
+        }
+        if (!opened) context.showToast(
+            if (command == ContactCommand.WHATSAPP) R.string.whatsapp_not_installed else R.string.unable_to_open_app,
+        )
     }
 
     fun execute(contact: Contact, command: ContactCommand) {

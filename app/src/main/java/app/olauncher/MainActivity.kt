@@ -152,22 +152,22 @@ class MainActivity : AppCompatActivity() {
         val launcherApps = getSystemService(LauncherApps::class.java)
         launcherAppsCallback = object : LauncherApps.Callback() {
             override fun onPackageRemoved(packageName: String, user: android.os.UserHandle) {
-                viewModel.getAppList()
+                viewModel.invalidateAppList(isResumed)
             }
 
             override fun onPackageAdded(packageName: String, user: android.os.UserHandle) {
-                viewModel.getAppList()
+                viewModel.invalidateAppList(isResumed)
             }
 
             override fun onPackageChanged(packageName: String, user: android.os.UserHandle) {
-                viewModel.getAppList()
+                viewModel.invalidateAppList(isResumed)
             }
             override fun onPackagesAvailable(
                 packageNames: Array<out String>,
                 user: android.os.UserHandle,
                 replacing: Boolean,
             ) {
-                viewModel.getAppList()
+                viewModel.invalidateAppList(isResumed)
             }
 
             override fun onPackagesUnavailable(
@@ -175,7 +175,7 @@ class MainActivity : AppCompatActivity() {
                 user: android.os.UserHandle,
                 replacing: Boolean,
             ) {
-                viewModel.getAppList()
+                viewModel.invalidateAppList(isResumed)
             }
 
             override fun onShortcutsChanged(
@@ -183,7 +183,7 @@ class MainActivity : AppCompatActivity() {
                 shortcuts: MutableList<ShortcutInfo>,
                 user: android.os.UserHandle,
             ) {
-                viewModel.getAppList()
+                viewModel.invalidateAppList(isResumed)
             }
         }
         launcherApps.registerCallback(launcherAppsCallback!!)

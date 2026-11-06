@@ -18,6 +18,7 @@ import android.view.View
 import app.olauncher.data.AppModel
 import app.olauncher.data.AppSearchAppearance
 import app.olauncher.data.Contact
+import app.olauncher.data.GroupChat
 import app.olauncher.data.SearchEngine
 import app.olauncher.R
 import app.olauncher.databinding.ItemSearchAppBinding
@@ -34,8 +35,9 @@ sealed class SearchItem {
     data class Header(val title: String) : SearchItem()
     data class App(val app: AppModel) : SearchItem()
     data class ContactItem(val contact: Contact) : SearchItem()
+    data class GroupChatItem(val chat: GroupChat) : SearchItem()
     data class Engine(val engine: SearchEngine, val matched: Boolean) : SearchItem()
-    data class Permission(val label: String) : SearchItem()
+    data class Permission(val label: String, val messages: Boolean = false) : SearchItem()
     data class AddContact(val query: String) : SearchItem()
 }
 
@@ -52,6 +54,8 @@ interface SearchActions {
     fun onEngineClick(engine: SearchEngine)
     fun onResultMenu(item: SearchItem, anchor: View)
     fun onPermissionClick()
+    fun onMessagesPermissionClick() {}
+    fun onGroupChatClick(chat: GroupChat) {}
     fun onAddContact(query: String)
 }
 
@@ -126,6 +130,15 @@ class SearchResultsAdapter(
                 (item is SearchItem.Engine && engineOverflowEnabled)
             binding.root.setOnLongClickListener(null)
             binding.root.isLongClickable = false
+            if ((item is SearchItem.ContactItem || item is SearchItem.GroupChatItem) && tileCount == 1) {
+                val density = binding.root.resources.displayMetrics.density
+                binding.root.setPadding((12 * density).toInt(), binding.root.paddingTop, 0, binding.root.paddingBottom)
+                binding.itemIcon.layoutParams = binding.itemIcon.layoutParams.apply {
+                    width = (32 * density).toInt()
+                    height = width
+                    (this as? ViewGroup.MarginLayoutParams)?.marginEnd = (12 * density).toInt()
+                }
+            }
             when (item) {
                 is SearchItem.App -> {
                     binding.itemTitle.text = item.app.appLabel + if (item.app.isNew) " ✦" else ""
@@ -156,15 +169,6 @@ class SearchResultsAdapter(
                     setIcon(R.drawable.ic_person)
                     loadContactPhoto(item.contact)
                     binding.contactActions.isVisible = tileCount == 1
-                    if (tileCount == 1) {
-                        val density = binding.root.resources.displayMetrics.density
-                        binding.root.setPadding((12 * density).toInt(), binding.root.paddingTop, 0, binding.root.paddingBottom)
-                        binding.itemIcon.layoutParams = binding.itemIcon.layoutParams.apply {
-                            width = (32 * density).toInt()
-                            height = width
-                            (this as? ViewGroup.MarginLayoutParams)?.marginEnd = (12 * density).toInt()
-                        }
-                    }
                     binding.contactCallAction.setOnClickListener { actions.onContactCall(item.contact) }
                     binding.contactTextAction.setOnClickListener { actions.onContactText(item.contact) }
                     binding.contactWhatsAppAction.setOnClickListener { actions.onContactWhatsApp(item.contact) }
@@ -184,11 +188,19 @@ class SearchResultsAdapter(
                     binding.root.isActivated = item.matched
                     binding.root.setOnClickListener { actions.onEngineClick(item.engine) }
                 }
+                is SearchItem.GroupChatItem -> {
+                    binding.itemTitle.text = item.chat.name
+                    binding.itemType.setText(R.string.search_type_group_chat)
+                    setIcon(R.drawable.ic_group)
+                    binding.root.setOnClickListener { actions.onGroupChatClick(item.chat) }
+                }
                 is SearchItem.Permission -> {
                     binding.itemTitle.text = item.label
                     binding.itemType.isVisible = false
                     setIcon(R.drawable.ic_person)
-                    binding.root.setOnClickListener { actions.onPermissionClick() }
+                    binding.root.setOnClickListener {
+                        if (item.messages) actions.onMessagesPermissionClick() else actions.onPermissionClick()
+                    }
                 }
                 is SearchItem.AddContact -> {
                     binding.itemTitle.setText(R.string.search_add_contact)
@@ -332,8 +344,10 @@ class SearchResultsAdapter(
                     oldItem.app.appPackage == newItem.app.appPackage && oldItem.app.user == newItem.app.user &&
                             oldItem.app.appLabel == newItem.app.appLabel
                 oldItem is SearchItem.ContactItem && newItem is SearchItem.ContactItem -> oldItem.contact.id == newItem.contact.id
+                oldItem is SearchItem.GroupChatItem && newItem is SearchItem.GroupChatItem ->
+                    oldItem.chat.threadId == newItem.chat.threadId
                 oldItem is SearchItem.Engine && newItem is SearchItem.Engine -> oldItem.engine.id == newItem.engine.id
-                oldItem is SearchItem.Permission && newItem is SearchItem.Permission -> true
+                oldItem is SearchItem.Permission && newItem is SearchItem.Permission -> oldItem.messages == newItem.messages
                 oldItem is SearchItem.AddContact && newItem is SearchItem.AddContact -> true
                 else -> false
             }

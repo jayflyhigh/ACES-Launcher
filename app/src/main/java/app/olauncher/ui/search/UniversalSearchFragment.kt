@@ -5,14 +5,13 @@ import android.content.ActivityNotFoundException
 import android.content.ContentUris
 import android.content.Context
 import android.content.Intent
-import android.content.pm.LauncherApps
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.UserHandle
 import android.provider.ContactsContract
+import android.provider.Telephony
 import android.text.Spannable
 import android.text.style.ImageSpan
 import android.view.Gravity
@@ -55,6 +54,8 @@ import app.olauncher.data.ContactCommand
 import app.olauncher.data.ContactCommandQuery
 import app.olauncher.data.ContactCommandSession
 import app.olauncher.data.ContactsLoader
+import app.olauncher.data.GroupChat
+import app.olauncher.data.GroupChatsLoader
 import app.olauncher.data.Prefs
 import app.olauncher.data.SearchEngine
 import app.olauncher.data.SearchEngines
@@ -95,6 +96,9 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private var privateApps: List<AppModel> = emptyList()
     private var privateSpaceLocked = true
     private var contacts: List<Contact> = emptyList()
+    private var groupChats: List<GroupChat> = emptyList()
+    private var messagesPermissionRequested = false
+    private var contactsRefreshJob: Job? = null
     private var engines: List<SearchEngine> = emptyList()
     private var filterJob: Job? = null
     private var permissionRequested = false
@@ -123,19 +127,25 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private var massUninstallDialog: androidx.appcompat.app.AlertDialog? = null
     private var appsReady = false
     private val contactsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean) { viewModel.loadContacts() }
-    }
-    private val packagesObserver = object : LauncherApps.Callback() {
-        override fun onPackageAdded(packageName: String, user: UserHandle) { viewModel.getAppList() }
-        override fun onPackageRemoved(packageName: String, user: UserHandle) { viewModel.getAppList() }
-        override fun onPackageChanged(packageName: String, user: UserHandle) { viewModel.getAppList() }
-        override fun onPackagesAvailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
-            viewModel.getAppList()
-        }
-        override fun onPackagesUnavailable(packageNames: Array<out String>, user: UserHandle, replacing: Boolean) {
-            viewModel.getAppList()
+        override fun onChange(selfChange: Boolean) {
+            contactsRefreshJob?.cancel()
+            contactsRefreshJob = viewLifecycleOwner.lifecycleScope.launch {
+                delay(200)
+                viewModel.loadContacts()
+            }
         }
     }
+    private var messagesObserverRegistered = false
+    private val messagesObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            messagesRefreshJob?.cancel()
+            messagesRefreshJob = viewLifecycleOwner.lifecycleScope.launch {
+                delay(200)
+                viewModel.loadGroupChats()
+            }
+        }
+    }
+    private var messagesRefreshJob: Job? = null
 
     private val popupBackCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
@@ -146,6 +156,13 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     private val contactsPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) viewModel.loadContacts()
         else context?.showToast(R.string.contacts_permission_denied)
+        rebuild()
+    }
+    private val messagesPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            registerMessagesObserver()
+            viewModel.loadGroupChats()
+        } else context?.showToast(R.string.messages_permission_denied)
         rebuild()
     }
 
@@ -318,8 +335,12 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                 contacts = it
                 rebuild()
             }
-            viewModel.loadContacts()
             viewModel.contactsLoading.observe(viewLifecycleOwner) { rebuild() }
+            viewModel.groupChats.observe(viewLifecycleOwner) {
+                groupChats = it
+                rebuild()
+            }
+            viewModel.groupChatsLoading.observe(viewLifecycleOwner) { rebuild() }
         }
     }
 
@@ -364,6 +385,16 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                         setTint(Color.WHITE)
                     }
                     setCompoundDrawablesRelative(drawable, null, null, null)
+                    if (mode == SearchMode.CONTACTS_ONLY) {
+                        setOnLongClickListener {
+                            cancelAutomaticCommand()
+                            activePopupWindow?.dismiss()
+                            ContactCommand.entries.firstOrNull { it.letter.toString() == command }?.let {
+                                commandExecutor?.openApp(it)
+                            }
+                            true
+                        }
+                    }
                     setOnClickListener {
                         val query = currentQuery()
                         val name = when (mode) {
@@ -579,25 +610,30 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         }
         val appsSnapshot = if (privateSpaceLocked) apps else apps + privateApps
         val contactsSnapshot = contacts
+        val groupsSnapshot = groupChats
         val enginesSnapshot = engines
         val contactsGranted = ContactsLoader.hasPermission(requireContext())
+        val messagesGranted = GroupChatsLoader.hasPermission(requireContext())
         val titles = Titles(
             apps = getString(R.string.apps),
             contacts = getString(R.string.contacts),
             search = getString(R.string.search),
             permission = getString(R.string.allow_contacts_access),
+            messagesPermission = getString(R.string.allow_messages_access),
         )
         filterJob?.cancel()
         filterJob = viewLifecycleOwner.lifecycleScope.launch {
             val items = withContext(Dispatchers.Default) {
-                buildItems(query, appsSnapshot, contactsSnapshot, enginesSnapshot, contactsGranted, titles)
+                buildItems(query, appsSnapshot, contactsSnapshot, enginesSnapshot, contactsGranted, titles,
+                    groupsSnapshot, messagesGranted)
             }
             adapter.submitList(items) {
                 if (_binding == null || query != currentQuery() || generation != filterGeneration) return@submitList
-                val count = items.count { it is SearchItem.App || it is SearchItem.ContactItem || it is SearchItem.Engine }
+                val count = items.count { it is SearchItem.App || it is SearchItem.ContactItem ||
+                    it is SearchItem.GroupChatItem || it is SearchItem.Engine }
                 binding.resultsCount.text = resources.getQuantityString(R.plurals.search_result_count, count, count)
                 val loading = (mode.showsContacts && viewModel.contactsLoading.value == true) ||
-                    (mode.showsApps && !appsReady)
+                    (mode.showsContacts && viewModel.groupChatsLoading.value == true) || (mode.showsApps && !appsReady)
                 binding.emptyState.isVisible = count == 0 && !loading &&
                     items.none { it is SearchItem.Permission || it is SearchItem.AddContact }
                 if (mode == SearchMode.CONTACTS_ONLY) {
@@ -911,7 +947,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         if (ContactCommandQuery.parse(currentQuery()) != null) commandSession.consumed = true
     }
 
-    private class Titles(val apps: String, val contacts: String, val search: String, val permission: String)
+    private class Titles(val apps: String, val contacts: String, val search: String, val permission: String,
+        val messagesPermission: String)
 
     private suspend fun buildItems(
         query: String,
@@ -920,6 +957,8 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
         engines: List<SearchEngine>,
         contactsGranted: Boolean,
         titles: Titles,
+        groups: List<GroupChat>,
+        messagesGranted: Boolean,
     ): List<SearchItem> {
         val commandQuery = if (mode == SearchMode.CONTACTS_ONLY) ContactCommandQuery.parse(query) else null
         val appQuery = if (mode == SearchMode.APPS_ONLY) AppCommandQuery.parse(query) else null
@@ -963,6 +1002,14 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
                     if (showHeaders) items.add(SearchItem.Header(titles.contacts))
                     matches.mapTo(items) { SearchItem.ContactItem(it) }
                 }
+            }
+            if (commandQuery == null) {
+                groups.filter {
+                    coroutineContext.ensureActive()
+                    messagesGranted && matcher.matches(it.name)
+                }.mapTo(items) { SearchItem.GroupChatItem(it) }
+                if (!messagesGranted && q.isEmpty())
+                    items.add(SearchItem.Permission(titles.messagesPermission, messages = true))
             }
         }
 
@@ -1011,9 +1058,12 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             else engines.firstOrNull()?.let { openEngine(it, query) }
             return
         }
-        when (val first = adapter.currentList.firstOrNull { it is SearchItem.App || it is SearchItem.ContactItem }) {
+        when (val first = adapter.currentList.firstOrNull {
+            it is SearchItem.App || it is SearchItem.ContactItem || it is SearchItem.GroupChatItem
+        }) {
             is SearchItem.App -> onAppClick(first.app)
             is SearchItem.ContactItem -> onContactClick(first.contact)
+            is SearchItem.GroupChatItem -> onGroupChatClick(first.chat)
             else -> if (mode == SearchMode.ALL_SEARCH && query.isNotEmpty())
                 engines.firstOrNull()?.let { openEngine(it, query) }
         }
@@ -1201,12 +1251,39 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
             requestContactsPermission()
     }
 
+    override fun onMessagesPermissionClick() {
+        if (messagesPermissionRequested && !shouldShowRequestPermissionRationale(Manifest.permission.READ_SMS)) {
+            openAppInfo(requireContext(), android.os.Process.myUserHandle(), requireContext().packageName)
+        } else {
+            messagesPermissionRequested = true
+            messagesPermission.launch(Manifest.permission.READ_SMS)
+        }
+    }
+
+    override fun onGroupChatClick(chat: GroupChat) {
+        cancelAutomaticCommand()
+        val intent = Intent(Intent.ACTION_VIEW, ContentUris.withAppendedId(Telephony.Threads.CONTENT_URI, chat.threadId))
+        Telephony.Sms.getDefaultSmsPackage(requireContext())?.let(intent::setPackage)
+        if (!startSafely(intent)) {
+            val composer = Intent(Intent.ACTION_SENDTO, Uri.fromParts("smsto", chat.addresses.joinToString(";"), null))
+            intent.`package`?.let(composer::setPackage)
+            if (!startSafely(composer)) requireContext().showToast(R.string.unable_to_open_app)
+        }
+    }
+
+    private fun registerMessagesObserver() {
+        if (!mode.showsContacts || messagesObserverRegistered || !GroupChatsLoader.hasPermission(requireContext())) return
+        requireContext().contentResolver.registerContentObserver(Telephony.MmsSms.CONTENT_URI, true, messagesObserver)
+        messagesObserverRegistered = true
+    }
+
     override fun onStart() {
         super.onStart()
-        if (mode.showsApps)
-            requireContext().getSystemService(LauncherApps::class.java).registerCallback(packagesObserver)
-        if (mode.showsContacts)
+        if (mode.showsContacts) {
             requireContext().contentResolver.registerContentObserver(ContactsContract.Contacts.CONTENT_URI, true, contactsObserver)
+            registerMessagesObserver()
+            viewModel.loadContacts()
+        }
         searchTextView?.showKeyboard() ?: binding.search.showKeyboard()
     }
 
@@ -1236,10 +1313,15 @@ class UniversalSearchFragment : BaseFragment(), SearchActions {
     }
 
     override fun onStop() {
-        if (mode.showsApps)
-            requireContext().getSystemService(LauncherApps::class.java).unregisterCallback(packagesObserver)
+        contactsRefreshJob?.cancel()
+        messagesRefreshJob?.cancel()
+        filterJob?.cancel()
         if (mode.showsContacts)
             requireContext().contentResolver.unregisterContentObserver(contactsObserver)
+        if (messagesObserverRegistered) {
+            requireContext().contentResolver.unregisterContentObserver(messagesObserver)
+            messagesObserverRegistered = false
+        }
         activePopupWindow?.dismiss()
         binding.search.hideKeyboard()
         super.onStop()
